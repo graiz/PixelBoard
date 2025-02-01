@@ -14,6 +14,7 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include "patterns.h"          // For g_patternList, PATTERN_COUNT, etc.
+#include "draw/draw.h"
 
 // -------------------------------------------------------------------
 // Global AsyncWebServer for "normal" operation on port 80
@@ -399,6 +400,7 @@ void wifiServerSetup() {
     setupPatternHandler();
     setupBrightnessHandler();
     setupSpeedHandler();
+    setupDrawPattern(&server);
     startServer();
   } else {
     Serial.println("[WiFi] Running in AP mode for onboarding.");

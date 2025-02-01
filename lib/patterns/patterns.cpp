@@ -1,4 +1,8 @@
 #include <patterns.h>
+#include "twinkle/twinkle.h"
+#include "draw/draw.h"
+
+
 #define XY(x, y) ((y) % 2 == 0 ?  ((y) * 16 + (15 - (x))) : ((y) * 16 + (x)) )
 //This macro will map the 2D coordinates (0, 0) to LED index 0, using a serpentine map. 
 
@@ -10,7 +14,6 @@ void ghost(CRGB* leds);
 void water(CRGB* leds);
 void rainbow(CRGB* leds);
 void rainbowWithGlitter(CRGB* leds);
-void twinkle(CRGB* leds);
 void pulse(CRGB* leds);
 void confetti(CRGB* leds); 
 void sinelon(CRGB* leds);
@@ -42,11 +45,13 @@ Pattern g_patternList[] = {
     { "Confetti",          confetti },
     { "Up Down Rainbow",   sinelon },
     { "Juggle",            juggle },
+    { "Twinkle",           twinkle },
     { "Sleep Device",      sleepLED },
     { "Swirl",             swirl },
     { "Game of Life",      meteorRain },
     { "Color Wipe",        colorWipe },
-    { "Clock Countdown",   clockCountdown }
+    { "Clock Countdown",   clockCountdown },
+    { "Draw",              draw }
 };
 
 // And the size of that array
@@ -191,17 +196,7 @@ void rainbowWithGlitter(CRGB* leds)
   addGlitter(80,leds);
 }
 
-void twinkle(CRGB* leds) {
-  uint8_t* fade = new uint8_t[NUM_LEDS];
-  for (int i = 0; i < NUM_LEDS; i++) {
-    if (random8() < 5) {
-      fade[i] = 255;
-    }
-    leds[i].fadeToBlackBy(fade[i]);
-    fade[i] = qsub8(fade[i], 5);
-  }
-  delete[] fade;
-}
+
 void pulse(CRGB* leds) {
   static uint8_t hue = 0;
   static uint16_t time = 0;
