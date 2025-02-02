@@ -159,7 +159,7 @@ void setupDrawPattern(AsyncWebServer* server) {
                     img.onload = function() {
                         // Get the preview canvas
                         const canvas = document.getElementById('preview');
-                        const ctx = canvas.getContext('2d');
+                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
                         canvas.style.display = 'block';
                         
                         // Clear canvas
@@ -186,18 +186,37 @@ void setupDrawPattern(AsyncWebServer* server) {
                                 const g = imageData[1];
                                 const b = imageData[2];
                                 
-                                // Update the grid and LED
+                                // Update the grid
                                 const pixel = document.querySelector(`.pixel[data-x="${px}"][data-y="${py}"]`);
                                 pixel.style.backgroundColor = `rgb(${r},${g},${b})`;
-                                fetch(`/drawpixel?x=${px}&y=${py}&r=${r}&g=${g}&b=${b}`);
                             }
                         }
+                        // Send all pixels at once
+                        sendFullImage();
                     };
                     img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
             }
         });
+
+        function sendFullImage() {
+            const pixels = document.getElementsByClassName('pixel');
+            let pixelData = '';
+            
+            for (let pixel of pixels) {
+                const style = getComputedStyle(pixel);
+                const rgb = style.backgroundColor.match(/\d+/g);
+                // Convert RGB to hex string
+                pixelData += (
+                    (parseInt(rgb[0]).toString(16).padStart(2, '0')) +
+                    (parseInt(rgb[1]).toString(16).padStart(2, '0')) +
+                    (parseInt(rgb[2]).toString(16).padStart(2, '0'))
+                );
+            }
+            
+            fetch('/drawimage?pixels=' + pixelData);
+        }
     </script>
 </body>
 </html>
@@ -227,6 +246,32 @@ void setupDrawPattern(AsyncWebServer* server) {
                 leds[ledIndex] = CRGB(r, g, b);
                 FastLED.show();
             }
+        }
+        request->send(200);
+    });
+
+    server->on("/drawimage", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("pixels")) {
+            String pixelData = request->getParam("pixels")->value();
+            int index = 0;
+            
+            // Process groups of 6 characters (RRGGBB)
+            for (int i = 0; i < pixelData.length(); i += 6) {
+                if (index >= NUM_LEDS) break;
+                
+                // Convert hex string to RGB values
+                uint32_t rgb = strtoul(pixelData.substring(i, i + 6).c_str(), NULL, 16);
+                uint8_t r = (rgb >> 16) & 0xFF;
+                uint8_t g = (rgb >> 8) & 0xFF;
+                uint8_t b = rgb & 0xFF;
+                
+                // Update both states and LEDs
+                pixelStates[index] = CRGB(r, g, b);
+                leds[index] = CRGB(r, g, b);
+                index++;
+            }
+            
+            FastLED.show();
         }
         request->send(200);
     });
