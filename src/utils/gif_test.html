@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GIF Test</title>
+    <script type="text/javascript" src="libgif.js"></script>
+    <style>
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="gifInput" accept=".gif" onchange="loadGif(this)">
+    <div class="container">
+        <img id="gif" rel:auto_play="1" style="display: none;" />
+        <canvas id="imgcopy" width="150" height="150"></canvas>
+    </div>
+
+    <script>
+        let copyInterval;
+
+        function loadGif(input) {
+            if (input.files && input.files[0]) {
+                // Clear any existing interval
+                if (copyInterval) {
+                    clearInterval(copyInterval);
+                }
+
+                const file = input.files[0];
+                const img = document.getElementById('gif');
+                img.setAttribute('rel:animated_src', URL.createObjectURL(file));
+                img.style.display = 'block';
+
+                if (typeof SuperGif === 'undefined') {
+                    console.error('SuperGif library not loaded!');
+                    return;
+                }
+                let gif = new SuperGif({ 
+                    gif: img,
+                    max_width: 150,
+                    max_height: 150,
+                    show_progress_bar: false
+                });
+                gif.load(() => {
+                    // Start playing
+                    gif.play();
+                    
+                    // Start copying frames every second
+                    copyInterval = setInterval(() => {
+                        const canvas = document.getElementById('imgcopy');
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, 150, 150);
+                        ctx.drawImage(gif.get_canvas(), 0, 0);
+                    }, 100);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
