@@ -55,6 +55,22 @@ void setupDrawPattern(AsyncWebServer* server) {
         #green { background-color: #0f0; color: #000; }
         #blue { background-color: #00f; color: #fff; }
         #clear { background-color: #666; color: #fff; }
+        .upload-btn {
+            padding: 10px 20px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+        }
+        #imageInput {
+            display: none;
+        }
+        .preview {
+            margin: 10px 0;
+            border: 1px solid #444;
+        }
     </style>
 </head>
 <body>
@@ -65,6 +81,11 @@ void setupDrawPattern(AsyncWebServer* server) {
         <button class="color-btn" id="green">Green</button>
         <button class="color-btn" id="blue">Blue</button>
         <button class="color-btn" id="clear">Clear</button>
+    </div>
+    <div>
+        <input type="file" id="imageInput" accept="image/*">
+        <button class="upload-btn" onclick="document.getElementById('imageInput').click()">Upload Image</button>
+        <canvas id="preview" class="preview" width="160" height="160" style="display: none;"></canvas>
     </div>
     <div class="grid" id="pixelGrid"></div>
 
@@ -127,6 +148,56 @@ void setupDrawPattern(AsyncWebServer* server) {
             pixel.style.backgroundColor = `rgb(${currentColor.r},${currentColor.g},${currentColor.b})`;
             fetch(`/drawpixel?x=${x}&y=${y}&r=${currentColor.r}&g=${currentColor.g}&b=${currentColor.b}`);
         }
+
+        // Add image handling code
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // Get the preview canvas
+                        const canvas = document.getElementById('preview');
+                        const ctx = canvas.getContext('2d');
+                        canvas.style.display = 'block';
+                        
+                        // Clear canvas
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        // Calculate scaling to maintain aspect ratio
+                        const scale = Math.min(160 / img.width, 160 / img.height);
+                        const width = img.width * scale;
+                        const height = img.height * scale;
+                        
+                        // Center the image
+                        const x = (160 - width) / 2;
+                        const y = (160 - height) / 2;
+                        
+                        // Draw scaled image
+                        ctx.drawImage(img, x, y, width, height);
+                        
+                        // Sample the image at 16x16 resolution
+                        const pixelSize = 10; // 160/16 = 10
+                        for(let py = 0; py < 16; py++) {
+                            for(let px = 0; px < 16; px++) {
+                                const imageData = ctx.getImageData(px * pixelSize + 5, py * pixelSize + 5, 1, 1).data;
+                                const r = imageData[0];
+                                const g = imageData[1];
+                                const b = imageData[2];
+                                
+                                // Update the grid and LED
+                                const pixel = document.querySelector(`.pixel[data-x="${px}"][data-y="${py}"]`);
+                                pixel.style.backgroundColor = `rgb(${r},${g},${b})`;
+                                fetch(`/drawpixel?x=${px}&y=${py}&r=${r}&g=${g}&b=${b}`);
+                            }
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
     </script>
 </body>
 </html>
