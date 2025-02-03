@@ -4,10 +4,10 @@
 #include "WifiServer.h"
 #include <Preferences.h>
 #include <patterns.h>  
+#include "SPIFFS.h"
 
 #define DATA_PIN 26
 #define NUM_LEDS 256
-#define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 
 Preferences preferences;
@@ -72,6 +72,11 @@ void setup() {
 
   // 5) After WiFi is stable, set your normal brightness
   FastLED.setBrightness(g_Brightness);
+
+  if(!SPIFFS.begin()){
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
 }
 
 void loop()

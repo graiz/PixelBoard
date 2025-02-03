@@ -15,6 +15,7 @@
 #include <ESPmDNS.h>
 #include "patterns.h"          // For g_patternList, PATTERN_COUNT, etc.
 #include "draw/draw.h"
+#include "SPIFFS.h"
 
 // -------------------------------------------------------------------
 // Global AsyncWebServer for "normal" operation on port 80
@@ -212,7 +213,8 @@ static void setupHomePage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>PixelBoard Control</title>
+        <title>PixelBoard GIF</title>
+        <script type="text/javascript" src="/static/libgif.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
           body {
@@ -381,6 +383,8 @@ static void setupSpeedHandler() {
 // Start the "normal" server (station mode only)
 // -------------------------------------------------------------------
 static void startServer() {
+  // Serve the libgif.js file from SPIFFS
+  server.serveStatic("/libgif.js", SPIFFS, "/libgif.js");
   server.begin();
   Serial.println("[WiFi] Normal Web server started on port 80");
 }
@@ -402,6 +406,25 @@ void wifiServerSetup() {
     setupSpeedHandler();
     setupDrawPattern(&server);
     startServer();
+
+    // Debug: List files in SPIFFS
+    server.on("/list", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String output = "";
+        File root = SPIFFS.open("/");
+        File file = root.openNextFile();
+        while(file) {
+            output += "File: ";
+            output += file.name();
+            output += " Size: ";
+            output += file.size();
+            output += "\n";
+            file = root.openNextFile();
+        }
+        request->send(200, "text/plain", output);
+    });
+
+    // Serve static files with error handling
+    server.serveStatic("/static/", SPIFFS, "/").setDefaultFile("index.html").setCacheControl("max-age=600");
   } else {
     Serial.println("[WiFi] Running in AP mode for onboarding.");
   }

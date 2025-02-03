@@ -4,7 +4,8 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
-#include <patterns.h> 
+#include <patterns.h>
+#include "SPIFFS.h"
 
 void wifiServerSetup();
 void wifiLoop();
