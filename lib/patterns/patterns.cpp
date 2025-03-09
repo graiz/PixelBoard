@@ -1,6 +1,9 @@
 #include <patterns.h>
 #include "twinkle/twinkle.h"
 #include "draw/draw.h"
+#include "video/video.h"
+// include "spotify/spotify.h"
+
 
 
 #define XY(x, y) ((y) % 2 == 0 ?  ((y) * 16 + (15 - (x))) : ((y) * 16 + (x)) )
@@ -28,6 +31,7 @@ void swirl(CRGB* leds);
 void meteorRain(CRGB* leds);
 void colorWipe(CRGB* leds);
 void clockCountdown(CRGB* leds);
+// void spotifyCover(CRGB* leds);
 
 // Provide the actual array definition
 Pattern g_patternList[] = {
@@ -51,7 +55,9 @@ Pattern g_patternList[] = {
     { "Game of Life",      meteorRain },
     { "Color Wipe",        colorWipe },
     { "Clock Countdown",   clockCountdown },
-    { "Draw",              draw }
+    { "Draw",              draw },
+    { "Video",             video }
+  //  { "Spotify Cover",     spotifyCover }
 };
 
 // And the size of that array

@@ -14,7 +14,8 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include "patterns.h"          // For g_patternList, PATTERN_COUNT, etc.
-#include "draw/draw.h"
+#include "draw/draw.h"         // For setupDrawHandler
+#include "video/video.h"       // For setupVideoPlayer
 #include "SPIFFS.h"
 
 // -------------------------------------------------------------------
@@ -404,6 +405,7 @@ void wifiServerSetup() {
     setupPatternHandler();
     setupBrightnessHandler();
     setupSpeedHandler();
+    setupVideoPlayer(&server);
     setupDrawPattern(&server);
     startServer();
 
