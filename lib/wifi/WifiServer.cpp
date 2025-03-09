@@ -58,6 +58,7 @@ static void setupHomePage();
 static void setupPatternHandler();
 static void setupBrightnessHandler();
 static void setupSpeedHandler();
+static void setupPixelStatusHandler();
 static void startServer();
 
 // -------------------------------------------------------------------
@@ -214,7 +215,7 @@ static void setupHomePage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>PixelBoard GIF</title>
+        <title>PixelBoard Control</title>
         <script type="text/javascript" src="/static/libgif.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
@@ -222,24 +223,59 @@ static void setupHomePage() {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            background-color: #282c34;
+            color: #ffffff;
+            min-height: 100vh;
+          }
+          .page-layout {
+            display: flex;
+            min-height: 100vh;
+          }
+          .controls-panel {
+            width: 33%;
+            padding: 20px;
+            background: #3b3f47;
+            border-right: 1px solid #61dafb;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+          }
+          .main-controls {
+            flex: 1;
+          }
+          .preview-panel {
+            width: 67%;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #282c34;
-            color: #ffffff;
+            justify-content: center;
           }
-          .container {
-            max-width: 600px;
+          .preview-panel iframe {
             width: 100%;
-            padding: 20px;
-            margin: 20px auto;
+            height: 100%;
+            border: none;
             background: #3b3f47;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            padding: 20px;
+            background: #3b3f47;
+            border-radius: 10px;
+            aspect-ratio: 1;
+            width: min(80%, 600px);
+          }
+          .preview-pixel {
+            aspect-ratio: 1;
+            background: #61dafb;
+            border-radius: 2px;
+            transition: background-color 0.3s ease;
           }
           h1 {
             margin-bottom: 20px;
-            text-align: center;
             font-size: 24px;
             color: #61dafb;
           }
@@ -248,82 +284,333 @@ static void setupHomePage() {
             margin-bottom: 5px;
             font-weight: bold;
           }
-          select, button {
+          select {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: none;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #61dafb;
+            border-radius: 4px;
+            background: #282c34;
+            color: white;
+          }
+          .slider-container {
+            margin-bottom: 15px;
+          }
+          .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 10px;
             border-radius: 5px;
+            background: #282c34;
+            outline: none;
+            margin: 10px 0;
+          }
+          .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
             background: #61dafb;
-            color: #000;
-            font-size: 16px;
             cursor: pointer;
           }
-          button:hover {
-            background: #21a1f1;
+          .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #61dafb;
+            cursor: pointer;
           }
-          .note {
-            font-size: 12px;
-            text-align: center;
-            margin-top: -10px;
+          .value-display {
+            text-align: right;
+            color: #61dafb;
+            font-size: 14px;
+            margin-top: 5px;
+          }
+          .preview-controls {
+            margin-top: auto;
+            padding: 15px;
+            background: #282c34;
+            border-radius: 8px;
+            border: 1px solid #61dafb;
+          }
+          .preview-controls h2 {
+            font-size: 18px;
+            color: #61dafb;
+            margin: 0 0 15px 0;
+          }
+          .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+          }
+          .control-button {
+            flex: 1;
+            padding: 8px;
+            background: #61dafb;
+            color: #282c34;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+          }
+          .control-button:hover {
+            background: #4fa8d3;
+          }
+          .preview-status {
+            font-size: 14px;
             color: #bbb;
+            margin-top: 15px;
+          }
+          .preview-status span {
+            color: #61dafb;
+          }
+          .value-display {
+            font-size: 12px;
+            color: #bbb;
+            margin-top: 5px;
+            width: 100%;
+            overflow: hidden;
           }
         </style>
       </head>
       <body>
-        <div class="container">
-          <h1>PixelBoard Control</h1>
-          <label for="pattern_select">Select Pattern:</label>
-          <select id="pattern_select" onchange="changePattern()">
+        <div class="page-layout">
+          <div class="controls-panel">
+            <div class="main-controls">
+              <h1>PixelBoard Control</h1>
+              
+              <label for="pattern">Pattern:</label>
+              <select id="pattern" onchange="updatePattern(this.value)">
     )rawliteral";
 
     // Add pattern options
     for (size_t i = 0; i < PATTERN_COUNT; i++) {
-      html += "<option value=\"" + String(i) + "\">" + String(g_patternList[i].name) + "</option>";
-    }
+              html += "<option value=\"" + String(i) + "\"" +
+                     (i == g_current_pattern_number ? " selected" : "") +
+                     ">" + g_patternList[i].name + "</option>";
+            }
 
-    // Brightness
+            html += "</select>";
+
+            // Add brightness slider
+            html += "<div class=\"slider-container\">";
+            html += "<label for=\"brightness\">Brightness: <span id=\"brightnessValue\">" + String(g_Brightness) + "</span></label>";
+            html += "<input type=\"range\" min=\"0\" max=\"255\" value=\"" + String(g_Brightness) + "\" class=\"slider\" id=\"brightness\" oninput=\"updateBrightness(this.value)\">";
+            html += "</div>";
+
+            // Add speed slider
+            html += "<div class=\"slider-container\">";
+            html += "<label for=\"speed\">Speed: <span id=\"speedValue\">" + String(g_Speed) + "</span></label>";
+            html += "<input type=\"range\" min=\"0\" max=\"255\" value=\"" + String(g_Speed) + "\" class=\"slider\" id=\"speed\" oninput=\"updateSpeed(this.value)\">";
+            html += "</div>";
+
+            // Add preview controls
     html += R"rawliteral(
-          </select>
-          <label for="brightness_select">Select Brightness:</label>
-          <select id="brightness_select" onchange="changeBrightness()">
-    )rawliteral";
-
-    int brightnessOptions[] = {0, 1, 3, 5, 10, 25, 50, 100, 150, 250, 255};
-    for (int val : brightnessOptions) {
-      html += "<option value=\"" + String(val) + "\">" + String(val) + "</option>";
-    }
-
-    // Speed
-    html += R"rawliteral(
-          </select>
-          <label for="speed_select">Select Speed:</label>
-          <select id="speed_select" onchange="changeSpeed()">
-    )rawliteral";
-
-    int speedOptions[] = {1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000};
-    for (int val : speedOptions) {
-      html += "<option value=\"" + String(val) + "\">" + String(val) + "</option>";
-    }
-
-    html += R"rawliteral(
-          </select>
-          <button onclick="changePattern()">Apply Changes</button>
-          <p class="note">Use the controls above to update the PixelBoard.</p>
+            </div>
+            <div class="preview-controls">
+              <h2>Preview Controls</h2>
+              <div class="slider-container">
+                <label for="previewSpeed">Update Interval: <span id="previewSpeedValue">20s</span></label>
+                <input type="range" min="10" max="10000" value="500" class="slider" id="previewSpeed" oninput="updatePreviewSpeed(this.value)">
+                <div class="value-display">
+                  <span style="float: left">10ms</span>
+                  <span style="float: right">10s</span>
+                </div>
+              </div>
+              <div class="preview-status">
+                Status: <span id="previewStatus">Running</span><br>
+                Last Update: <span id="lastUpdate">Never</span>
+              </div>
+            </div>
+          </div>
+          <div class="preview-panel" id="previewPanel">
+            <!-- Preview content will be dynamically inserted here -->
+          </div>
         </div>
+
         <script>
-          function changePattern() {
-            var e = document.getElementById('pattern_select');
-            fetch('/set_pattern?pattern=' + e.value);
+          let previewUpdateInterval;
+          let isPaused = false;
+          let currentUpdateInterval = 20000; // Default 20 seconds
+          let isUpdating = false; // Flag to prevent concurrent requests
+
+          function formatTime(date) {
+            return date.toLocaleTimeString();
           }
-          function changeBrightness() {
-            var e = document.getElementById('brightness_select');
-            fetch('/setBrightness?brightness=' + e.value);
+
+          function formatInterval(ms) {
+            return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms';
           }
-          function changeSpeed() {
-            var e = document.getElementById('speed_select');
-            fetch('/setSpeed?speed=' + e.value);
+
+          function updateLastUpdateTime() {
+            document.getElementById('lastUpdate').textContent = formatTime(new Date());
           }
+
+          function updatePreviewSpeed(value) {
+            currentUpdateInterval = parseInt(value);
+            document.getElementById('previewSpeedValue').textContent = formatInterval(currentUpdateInterval);
+            
+            // Restart interval with new timing if running
+            if (!isPaused) {
+              startPreviewInterval();
+            }
+          }
+
+          function refreshPreview() {
+            // If already updating, skip this update
+            if (isUpdating) {
+              console.log('Skipping update - previous request still in progress');
+              return;
+            }
+
+            isUpdating = true;
+            document.getElementById('previewStatus').textContent = 'Updating...';
+
+            fetch('/pixelStatus')
+              .then(response => response.arrayBuffer())  // Get as binary data
+              .then(buffer => {
+                const pixels = new Uint8Array(buffer);
+                for (let i = 0; i < 256; i++) {
+                  const baseIndex = i * 3;
+                  const r = pixels[baseIndex];
+                  const g = pixels[baseIndex + 1];
+                  const b = pixels[baseIndex + 2];
+                  
+                  const pixelElement = document.getElementById('pixel-' + i);
+                  if (pixelElement) {
+                    pixelElement.style.backgroundColor = `rgb(${r},${g},${b})`;
+                  }
+                }
+                updateLastUpdateTime();
+                document.getElementById('previewStatus').textContent = 'Running';
+              })
+              .catch(error => {
+                console.error('Error updating preview:', error);
+                document.getElementById('previewStatus').textContent = 'Error';
+              })
+              .finally(() => {
+                isUpdating = false;
+              });
+          }
+
+          function togglePreview() {
+            const pauseButton = document.getElementById('pauseButton');
+            const statusElement = document.getElementById('previewStatus');
+            
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+              clearInterval(previewUpdateInterval);
+              pauseButton.textContent = 'Resume';
+              statusElement.textContent = 'Paused';
+            } else {
+              startPreviewInterval();
+              pauseButton.textContent = 'Pause';
+              statusElement.textContent = 'Running';
+              // Only refresh immediately if we're not already updating
+              if (!isUpdating) {
+                refreshPreview();
+              }
+            }
+          }
+
+          function startPreviewInterval() {
+            if (previewUpdateInterval) {
+              clearInterval(previewUpdateInterval);
+            }
+            previewUpdateInterval = setInterval(refreshPreview, currentUpdateInterval);
+          }
+
+          function startPreviewUpdates() {
+            // Create the initial grid
+            const previewPanel = document.getElementById('previewPanel');
+            const grid = document.createElement('div');
+            grid.className = 'preview-grid';
+            
+            // Create grid using row/column layout
+            for (let i = 0; i < 256; i++) {
+              const pixel = document.createElement('div');
+              pixel.className = 'preview-pixel';
+              pixel.id = 'pixel-' + i;
+              grid.appendChild(pixel);
+            }
+            previewPanel.appendChild(grid);
+
+            // Initial update
+            refreshPreview();
+
+            // Start interval if not paused
+            if (!isPaused) {
+              startPreviewInterval();
+            }
+          }
+
+          function updateBrightness(value) {
+            document.getElementById('brightnessValue').textContent = value;
+            fetch('/brightness?value=' + value)
+              .then(response => response.text())
+              .then(data => console.log('Brightness updated:', data))
+              .catch(error => console.error('Error:', error));
+          }
+
+          function updateSpeed(value) {
+            document.getElementById('speedValue').textContent = value;
+            fetch('/speed?value=' + value)
+              .then(response => response.text())
+              .then(data => console.log('Speed updated:', data))
+              .catch(error => console.error('Error:', error));
+          }
+
+          function updatePattern(value) {
+            const pattern = document.getElementById('pattern');
+            const selectedPattern = pattern.options[pattern.selectedIndex].text;
+            const previewPanel = document.getElementById('previewPanel');
+            
+            // Clear existing content
+            previewPanel.innerHTML = '';
+            
+            // Clear any existing interval
+            if (previewUpdateInterval) {
+                clearInterval(previewUpdateInterval);
+            }
+            
+            // Handle special patterns
+            if (selectedPattern.toLowerCase().includes('draw')) {
+                // Load draw interface
+                const iframe = document.createElement('iframe');
+                iframe.src = '/draw';
+                previewPanel.appendChild(iframe);
+            } else if (selectedPattern.toLowerCase().includes('video')) {
+                // Load video interface
+                const iframe = document.createElement('iframe');
+                iframe.src = '/video';
+                previewPanel.appendChild(iframe);
+            } else {
+                // Start preview updates for regular patterns
+                startPreviewUpdates();
+            }
+
+            fetch('/pattern?value=' + value)
+                .then(response => response.text())
+                .then(data => {
+                    console.log('Pattern updated:', data);
+                    if (!selectedPattern.toLowerCase().includes('draw') && 
+                        !selectedPattern.toLowerCase().includes('video')) {
+                        // Wait 1 second before refreshing preview to allow pattern to initialize
+                        setTimeout(() => {
+                            refreshPreview();
+                        }, 1000);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+          }
+
+          // Initialize preview on page load
+          document.addEventListener('DOMContentLoaded', function() {
+            updatePattern(document.getElementById('pattern').value);
+          });
         </script>
       </body>
       </html>
@@ -335,48 +622,98 @@ static void setupHomePage() {
 }
 
 // -------------------------------------------------------------------
-// Handler for /set_pattern?pattern=X
-// pattern = -1 => next pattern, -2 => random
+// Handler for /pattern?value=X
 // -------------------------------------------------------------------
 static void setupPatternHandler() {
-  server.on("/set_pattern", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasArg("pattern")) {
-      int new_pattern = request->arg("pattern").toInt();
-      if (new_pattern >= 0 && (size_t)new_pattern < PATTERN_COUNT) {
-        g_current_pattern_number = new_pattern;
-      } else if (new_pattern == -1) {
-        g_current_pattern_number = (g_current_pattern_number + 1) % PATTERN_COUNT;
-      } else if (new_pattern == -2) {
-        g_current_pattern_number = random(PATTERN_COUNT);
+  server.on("/pattern", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("value")) {
+      String patternStr = request->getParam("value")->value();
+      int pattern = patternStr.toInt();
+      
+      if (pattern >= 0 && pattern < PATTERN_COUNT) {
+        g_current_pattern_number = pattern;
+        request->send(200, "text/plain", "Pattern updated");
+      } else {
+        request->send(400, "text/plain", "Invalid pattern number");
       }
+    } else {
+      request->send(400, "text/plain", "Missing value parameter");
     }
-    request->send(200, "text/plain", "OK");
   });
 }
 
 // -------------------------------------------------------------------
-// Handler for /setBrightness?brightness=X
+// Handler for /brightness?value=X
 // -------------------------------------------------------------------
 static void setupBrightnessHandler() {
-  server.on("/setBrightness", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if(request->hasParam("brightness")) {
-      String brightnessVal = request->getParam("brightness")->value();
-      g_Brightness = brightnessVal.toInt();
+  server.on("/brightness", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("value")) {
+      String brightnessStr = request->getParam("value")->value();
+      int brightness = brightnessStr.toInt();
+      
+      if (brightness >= 0 && brightness <= 255) {
+        g_Brightness = brightness;
+        request->send(200, "text/plain", "Brightness updated");
+      } else {
+        request->send(400, "text/plain", "Invalid brightness value");
+      }
+    } else {
+      request->send(400, "text/plain", "Missing value parameter");
     }
-    request->redirect("/");
   });
 }
 
 // -------------------------------------------------------------------
-// Handler for /setSpeed?speed=X
+// Handler for /speed?value=X
 // -------------------------------------------------------------------
 static void setupSpeedHandler() {
-  server.on("/setSpeed", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if(request->hasParam("speed")) {
-      String speedVal = request->getParam("speed")->value();
-      g_Speed = speedVal.toInt();
+  server.on("/speed", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("value")) {
+      String speedStr = request->getParam("value")->value();
+      int speed = speedStr.toInt();
+      
+      if (speed >= 0 && speed <= 255) {
+        g_Speed = speed;
+        request->send(200, "text/plain", "Speed updated");
+      } else {
+        request->send(400, "text/plain", "Invalid speed value");
+      }
+    } else {
+      request->send(400, "text/plain", "Missing value parameter");
     }
-    request->redirect("/");
+  });
+}
+
+// -------------------------------------------------------------------
+// Handler for /pixelStatus - returns current LED states
+// -------------------------------------------------------------------
+static void setupPixelStatusHandler() {
+  server.on("/pixelStatus", HTTP_GET, [](AsyncWebServerRequest *request) {
+    extern CRGB leds[];
+    
+    // Pre-allocate fixed size buffer (256 pixels * 3 bytes per pixel)
+    static uint8_t response[768];  // RGB values only, no terminator needed
+    uint8_t* ptr = response;
+    
+    // Process 16x16 grid with serpentine pattern
+    for (int y = 0; y < 16; y++) {
+      const bool isEvenRow = (y & 1) == 0;
+      const int rowStart = y << 4;  // y * 16
+      
+      for (int x = 0; x < 16; x++) {
+        // Calculate LED index - even rows reversed
+        const int ledIndex = rowStart + (isEvenRow ? 15 - x : x);
+        
+        // Direct binary copy - no conversion needed
+        *ptr++ = leds[ledIndex].r;
+        *ptr++ = leds[ledIndex].g;
+        *ptr++ = leds[ledIndex].b;
+      }
+    }
+    
+    AsyncWebServerResponse *response_obj = request->beginResponse_P(200, "application/octet-stream", response, 768);
+    response_obj->addHeader("Cache-Control", "no-store");
+    request->send(response_obj);
   });
 }
 
@@ -384,8 +721,13 @@ static void setupSpeedHandler() {
 // Start the "normal" server (station mode only)
 // -------------------------------------------------------------------
 static void startServer() {
+  setupHomePage();
+  setupPatternHandler();
+  setupBrightnessHandler();
+  setupSpeedHandler();
+  setupPixelStatusHandler();  // Add the new handler
+  
   // Serve the libgif.js file from SPIFFS
-  server.serveStatic("/libgif.js", SPIFFS, "/libgif.js");
   server.begin();
   Serial.println("[WiFi] Normal Web server started on port 80");
 }

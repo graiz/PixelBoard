@@ -27,163 +27,207 @@ void setupVideoPlayer(AsyncWebServer* server) {
 <html>
 <head>
     <title>PixelBoard Video Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
+            margin: 0;
             padding: 20px;
-            background-color: #222;
-            color: #fff;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(16, 20px);
-            gap: 1px;
-            background-color: #333;
-            padding: 10px;
-            width: fit-content;
-            user-select: none;
-            margin: 20px 0;
-        }
-        .pixel {
-            width: 20px;
-            height: 20px;
-            background-color: #000;
-            border: 1px solid #444;
-        }
-        .controls {
-            margin: 20px 0;
+            background-color: #282c34;
+            color: #ffffff;
+            min-height: 100vh;
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            flex-direction: column;
+            align-items: center;
         }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #4a90e2;
-            color: white;
-            font-weight: bold;
+        .control-panel {
+            width: min(80%, 600px);
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #3b3f47;
+            border-radius: 10px;
+            border: 1px solid #61dafb;
         }
-        button:disabled {
-            background-color: #666;
-            cursor: not-allowed;
+        .section-title {
+            font-size: 18px;
+            color: #61dafb;
+            margin: 0 0 15px 0;
         }
-        #video-container {
-            margin: 20px 0;
-            display: none;
+        .controls-layout {
+            display: flex;
+            gap: 20px;
         }
-        video {
-            max-width: 100%;
-            border: 1px solid #444;
+        .controls-left {
+            flex: 1;
         }
-        #preview-canvas {
-            border: 1px solid #444;
-            margin: 20px 0;
-            display: none;
+        .preview-box {
+            width: 120px;
+            height: 120px;
+            background: #282c34;
+            border-radius: 4px;
+            border: 1px solid #61dafb;
+            overflow: hidden;
         }
-        #status {
-            margin: 10px 0;
-            padding: 10px;
-            background-color: #333;
-            border-radius: 5px;
+        .preview-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
-        .slider-container {
+        .slider-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 10px 0;
-        }
-        input[type="range"] {
-            flex-grow: 1;
-        }
-        input[type="file"] {
-            display: block;
-            margin: 20px 0;
-            padding: 10px;
-            background-color: #333;
-            border-radius: 5px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .control-panel {
-            background-color: #333;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-        .control-panel h3 {
-            margin-top: 0;
             margin-bottom: 15px;
-            color: #4a90e2;
+        }
+        .slider-row label {
+            width: 70px;
+            color: #ffffff;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            background: #282c34;
+            border-radius: 2px;
+            outline: none;
+        }
+        .slider-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #61dafb;
+            cursor: pointer;
+        }
+        .slider-row .value {
+            width: 60px;
+            text-align: right;
+            color: #61dafb;
+        }
+        .progress-row {
+            margin: 15px 0;
+            padding: 15px 0;
+            border-top: 1px solid #61dafb;
+            border-bottom: 1px solid #61dafb;
+        }
+        .progress-row input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 4px;
+            background: #282c34;
+            border-radius: 2px;
+            outline: none;
+        }
+        .progress-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #61dafb;
+            cursor: pointer;
+        }
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #61dafb;
+        }
+        .action-btn {
+            background: #282c34;
+            color: #61dafb;
+            border: 1px solid #61dafb;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: normal;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .action-btn:hover:not(:disabled) {
+            background: #61dafb;
+            color: #282c34;
+        }
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            background: #3b3f47;
+            padding: 20px;
+            border-radius: 10px;
+            aspect-ratio: 1;
+            width: min(80%, 600px);
+        }
+        .pixel {
+            aspect-ratio: 1;
+            background: #282c34;
+            border-radius: 2px;
+        }
+        #videoInput {
+            display: none;
+        }
+        #preview-canvas {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>PixelBoard Video Player</h1>
-    
-    <div id="status">Upload a video file to display on the PixelBoard</div>
-    
-    <input type="file" id="videoInput" accept="video/*">
-    
-    <div id="video-container">
-        <video id="video" controls></video>
+    <div class="control-panel">
+        <div class="section-title">Playback Controls</div>
+        <div class="controls-layout">
+            <div class="controls-left">
+                <div class="progress-row">
+                    <input type="range" id="progressSlider" min="0" max="100" value="0" step="0.1">
+                </div>
+                <div class="slider-row">
+                    <label>Speed:</label>
+                    <input type="range" id="speedSlider" min="1" max="30" value="10">
+                    <span class="value" id="fpsValue">10 FPS</span>
+                </div>
+                <div class="slider-row">
+                    <label>Zoom:</label>
+                    <input type="range" id="zoomSlider" min="50" max="300" value="100">
+                    <span class="value" id="zoomValue">100%</span>
+                </div>
+                <div class="slider-row">
+                    <label>Pan X:</label>
+                    <input type="range" id="panXSlider" min="-64" max="64" value="0">
+                    <span class="value" id="panXValue">0px</span>
+                </div>
+                <div class="slider-row">
+                    <label>Pan Y:</label>
+                    <input type="range" id="panYSlider" min="-64" max="64" value="0">
+                    <span class="value" id="panYValue">0px</span>
+                </div>
+            </div>
+            <div class="preview-box">
+                <video id="video"></video>
+            </div>
+        </div>
+        <div class="button-row">
+            <button id="playBtn" class="action-btn" disabled>Play</button>
+            <button id="pauseBtn" class="action-btn" disabled>Pause</button>
+            <button id="stopBtn" class="action-btn" disabled>Stop</button>
+            <button id="clearBtn" class="action-btn">Clear Board</button>
+            <label class="action-btn" for="videoInput">Choose Video File</label>
+            <input type="file" id="videoInput" accept="video/*">
+        </div>
     </div>
-    
+
     <canvas id="preview-canvas" width="160" height="160"></canvas>
-    
-    <div class="control-panel">
-        <h3>Playback Controls</h3>
-        <div class="slider-container">
-            <span>Speed:</span>
-            <input type="range" id="speedSlider" min="1" max="30" value="10">
-            <span id="fpsValue">10 FPS</span>
-        </div>
-        
-        <div class="controls">
-            <button id="playBtn" disabled>Play on PixelBoard</button>
-            <button id="pauseBtn" disabled>Pause</button>
-            <button id="stopBtn" disabled>Stop</button>
-            <button id="clearBtn">Clear Board</button>
-        </div>
-    </div>
-    
-    <div class="control-panel">
-        <h3>View Controls</h3>
-        <div class="slider-container">
-            <span>Zoom:</span>
-            <input type="range" id="zoomSlider" min="50" max="300" value="100">
-            <span id="zoomValue">100%</span>
-        </div>
-        
-        <div class="slider-container">
-            <span>Pan X:</span>
-            <input type="range" id="panXSlider" min="-100" max="100" value="0">
-            <span id="panXValue">0%</span>
-        </div>
-        
-        <div class="slider-container">
-            <span>Pan Y:</span>
-            <input type="range" id="panYSlider" min="-100" max="100" value="0">
-            <span id="panYValue">0%</span>
-        </div>
-        
-        <button id="resetViewBtn">Reset View</button>
-    </div>
-    
     <div class="grid" id="pixelGrid"></div>
 
     <script>
         // DOM elements
         const videoInput = document.getElementById('videoInput');
         const video = document.getElementById('video');
-        const videoContainer = document.getElementById('video-container');
         const canvas = document.getElementById('preview-canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const pixelGrid = document.getElementById('pixelGrid');
-        const statusEl = document.getElementById('status');
         const playBtn = document.getElementById('playBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const stopBtn = document.getElementById('stopBtn');
@@ -196,7 +240,7 @@ void setupVideoPlayer(AsyncWebServer* server) {
         const panXValue = document.getElementById('panXValue');
         const panYSlider = document.getElementById('panYSlider');
         const panYValue = document.getElementById('panYValue');
-        const resetViewBtn = document.getElementById('resetViewBtn');
+        const progressSlider = document.getElementById('progressSlider');
         
         // Variables
         let isPlaying = false;
@@ -206,6 +250,7 @@ void setupVideoPlayer(AsyncWebServer* server) {
         let zoomLevel = 100;
         let panX = 0;
         let panY = 0;
+        let isDraggingProgress = false;
         
         // Create 16x16 grid for preview
         for (let y = 0; y < 16; y++) {
@@ -225,15 +270,41 @@ void setupVideoPlayer(AsyncWebServer* server) {
             
             const url = URL.createObjectURL(file);
             video.src = url;
-            videoContainer.style.display = 'block';
-            canvas.style.display = 'block';
-            statusEl.textContent = `Video loaded: ${file.name}`;
             
-            // Enable controls when video is loaded
             video.onloadedmetadata = function() {
                 playBtn.disabled = false;
+                progressSlider.max = video.duration;
                 updatePixelboardPreview();
             };
+        });
+        
+        // Progress slider
+        progressSlider.addEventListener('mousedown', () => {
+            isDraggingProgress = true;
+            if (isPlaying) {
+                video.pause();
+                cancelAnimationFrame(animationId);
+            }
+        });
+        
+        progressSlider.addEventListener('mouseup', () => {
+            isDraggingProgress = false;
+            if (isPlaying) {
+                video.play();
+                animateVideo();
+            }
+        });
+        
+        progressSlider.addEventListener('input', function() {
+            video.currentTime = parseFloat(this.value);
+            updatePixelboardPreview();
+        });
+        
+        // Update progress bar during playback
+        video.addEventListener('timeupdate', function() {
+            if (!isDraggingProgress) {
+                progressSlider.value = video.currentTime;
+            }
         });
         
         // Speed slider
@@ -252,28 +323,14 @@ void setupVideoPlayer(AsyncWebServer* server) {
         // Pan X slider
         panXSlider.addEventListener('input', function() {
             panX = parseInt(this.value);
-            panXValue.textContent = `${panX}%`;
+            panXValue.textContent = `${panX}px`;
             updatePixelboardPreview();
         });
         
         // Pan Y slider
         panYSlider.addEventListener('input', function() {
             panY = parseInt(this.value);
-            panYValue.textContent = `${panY}%`;
-            updatePixelboardPreview();
-        });
-        
-        // Reset view button
-        resetViewBtn.addEventListener('click', function() {
-            zoomLevel = 100;
-            panX = 0;
-            panY = 0;
-            zoomSlider.value = 100;
-            panXSlider.value = 0;
-            panYSlider.value = 0;
-            zoomValue.textContent = '100%';
-            panXValue.textContent = '0%';
-            panYValue.textContent = '0%';
+            panYValue.textContent = `${panY}px`;
             updatePixelboardPreview();
         });
         
@@ -281,20 +338,17 @@ void setupVideoPlayer(AsyncWebServer* server) {
         playBtn.addEventListener('click', function() {
             if (isPlaying) return;
             
-            // Start playback on device
             fetch('/videocontrol?action=play&fps=' + fps)
                 .then(response => response.text())
                 .then(text => {
-                    statusEl.textContent = "Playing on PixelBoard";
+                    console.log("Playing video");
                 });
             
-            // Start local preview
             isPlaying = true;
             playBtn.disabled = true;
             pauseBtn.disabled = false;
             stopBtn.disabled = false;
             
-            // Start playback and animation
             video.play();
             animateVideo();
         });
@@ -303,39 +357,33 @@ void setupVideoPlayer(AsyncWebServer* server) {
         pauseBtn.addEventListener('click', function() {
             if (!isPlaying) return;
             
-            // Pause on device
             fetch('/videocontrol?action=pause')
                 .then(response => response.text())
                 .then(text => {
-                    statusEl.textContent = "Paused";
+                    console.log("Paused video");
                 });
             
-            // Pause local preview
             isPlaying = false;
             playBtn.disabled = false;
             pauseBtn.disabled = true;
             
-            // Pause video and animation
             video.pause();
             cancelAnimationFrame(animationId);
         });
         
         // Stop button
         stopBtn.addEventListener('click', function() {
-            // Stop on device
             fetch('/videocontrol?action=stop')
                 .then(response => response.text())
                 .then(text => {
-                    statusEl.textContent = "Stopped";
+                    console.log("Stopped video");
                 });
             
-            // Stop local preview
             isPlaying = false;
             playBtn.disabled = false;
             pauseBtn.disabled = true;
             stopBtn.disabled = true;
             
-            // Reset video and animation
             video.pause();
             video.currentTime = 0;
             cancelAnimationFrame(animationId);
@@ -347,11 +395,10 @@ void setupVideoPlayer(AsyncWebServer* server) {
             fetch('/videocontrol?action=clear')
                 .then(response => response.text())
                 .then(text => {
-                    statusEl.textContent = "Board cleared";
-                    // Clear preview grid
+                    console.log("Cleared board");
                     const pixels = document.getElementsByClassName('pixel');
                     for(let pixel of pixels) {
-                        pixel.style.backgroundColor = '#000';
+                        pixel.style.backgroundColor = '#282c34';
                     }
                 });
         });
@@ -361,16 +408,12 @@ void setupVideoPlayer(AsyncWebServer* server) {
             const now = performance.now();
             const elapsed = now - lastFrameTime;
             
-            // Only process frame if enough time has passed (based on FPS)
             if (elapsed > 1000 / fps) {
                 lastFrameTime = now;
                 updatePixelboardPreview();
-                
-                // Send frame to device
                 sendFrameToDevice();
             }
             
-            // Continue animation if still playing
             if (isPlaying) {
                 animationId = requestAnimationFrame(animateVideo);
             }
@@ -378,98 +421,82 @@ void setupVideoPlayer(AsyncWebServer* server) {
         
         // Update the preview with current video frame
         function updatePixelboardPreview() {
-            // Draw current video frame to canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Calculate base dimensions and offsets for video
             const videoAspect = video.videoWidth / video.videoHeight;
             const canvasAspect = canvas.width / canvas.height;
             
             let baseWidth, baseHeight, baseX, baseY;
             
+            // Calculate base dimensions to fill canvas while maintaining aspect ratio
             if (videoAspect > canvasAspect) {
-                // Video is wider than canvas
                 baseWidth = canvas.width;
                 baseHeight = canvas.width / videoAspect;
                 baseX = 0;
                 baseY = (canvas.height - baseHeight) / 2;
             } else {
-                // Video is taller than canvas
                 baseHeight = canvas.height;
                 baseWidth = canvas.height * videoAspect;
                 baseX = (canvas.width - baseWidth) / 2;
                 baseY = 0;
             }
             
-            // Apply zoom and pan adjustments
+            // Apply zoom from center
             const zoomFactor = zoomLevel / 100;
-            
-            // Calculate new dimensions with zoom
             const zoomedWidth = baseWidth * zoomFactor;
             const zoomedHeight = baseHeight * zoomFactor;
             
-            // Calculate max pan range based on zoom
-            const maxPanX = (zoomedWidth - baseWidth) / 2;
-            const maxPanY = (zoomedHeight - baseHeight) / 2;
+            // Center the zoomed image and apply pixel-based pan
+            const centerOffsetX = (zoomedWidth - baseWidth) / 2;
+            const centerOffsetY = (zoomedHeight - baseHeight) / 2;
             
-            // Calculate adjusted position with pan
-            const adjustedX = baseX - (maxPanX * panX / 100);
-            const adjustedY = baseY - (maxPanY * panY / 100);
+            // Calculate final position with pan
+            const adjustedX = baseX - centerOffsetX + panX;
+            const adjustedY = baseY - centerOffsetY + panY;
             
-            // Draw video frame with zoom and pan applied
             try {
-                ctx.drawImage(
-                    video,
-                    adjustedX, adjustedY, zoomedWidth, zoomedHeight
-                );
-            } catch (e) {
-                console.error("Error drawing video frame:", e);
-            }
-            
-            // Sample canvas at 16x16 resolution and update grid
-            const pixelSize = 10; // 160/16 = 10
-            for(let y = 0; y < 16; y++) {
-                for(let x = 0; x < 16; x++) {
-                    // Sample from center of each grid cell
-                    const imageData = ctx.getImageData(x * pixelSize + 5, y * pixelSize + 5, 1, 1).data;
-                    const r = imageData[0];
-                    const g = imageData[1];
-                    const b = imageData[2];
-                    
-                    // Update preview grid
-                    const pixel = document.querySelector(`.pixel[data-x="${x}"][data-y="${y}"]`);
-                    pixel.style.backgroundColor = `rgb(${r},${g},${b})`;
+                ctx.drawImage(video, adjustedX, adjustedY, zoomedWidth, zoomedHeight);
+                
+                const pixelSize = 10;
+                for(let y = 0; y < 16; y++) {
+                    for(let x = 0; x < 16; x++) {
+                        const imageData = ctx.getImageData(x * pixelSize + 5, y * pixelSize + 5, 1, 1).data;
+                        const pixel = document.querySelector(`.pixel[data-x="${x}"][data-y="${y}"]`);
+                        pixel.style.backgroundColor = `rgb(${imageData[0]},${imageData[1]},${imageData[2]})`;
+                    }
                 }
+            } catch (e) {
+                console.error("Error updating preview:", e);
             }
         }
         
         // Send current frame to device
         function sendFrameToDevice() {
-            let pixelData = '';
+            const pixelSize = 10;
+            const buffer = new Uint8Array(16 * 16 * 3); // 256 pixels * 3 bytes (RGB)
             
-            // Process grid at 16x16 resolution
             for(let y = 0; y < 16; y++) {
                 for(let x = 0; x < 16; x++) {
                     // For even rows, get pixels from right to left (serpentine pattern)
                     const sampleX = (y % 2 === 0) ? (15 - x) : x;
+                    const imageData = ctx.getImageData(sampleX * pixelSize + 5, y * pixelSize + 5, 1, 1).data;
                     
-                    // Sample directly from the canvas
-                    const imageData = ctx.getImageData(sampleX * 10 + 5, y * 10 + 5, 1, 1).data;
-                    const r = imageData[0];
-                    const g = imageData[1];
-                    const b = imageData[2];
-                    
-                    // Convert RGB to hex string
-                    pixelData += (
-                        r.toString(16).padStart(2, '0') +
-                        g.toString(16).padStart(2, '0') +
-                        b.toString(16).padStart(2, '0')
-                    );
+                    // Calculate buffer index: (y * 16 + x) * 3 for RGB values
+                    const bufferIndex = (y * 16 + x) * 3;
+                    buffer[bufferIndex] = imageData[0];     // R
+                    buffer[bufferIndex + 1] = imageData[1]; // G
+                    buffer[bufferIndex + 2] = imageData[2]; // B
                 }
             }
             
-            // Send frame data to device
-            fetch('/videoframe?pixels=' + pixelData);
+            // Send binary data
+            fetch('/videoframe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/octet-stream'
+                },
+                body: buffer
+            });
         }
         
         // Update grid when video is seeked
@@ -520,30 +547,19 @@ void setupVideoPlayer(AsyncWebServer* server) {
         }
     });
 
-    // Handle video frame data
-    server->on("/videoframe", HTTP_GET, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("pixels")) {
-            String pixelData = request->getParam("pixels")->value();
-            int index = 0;
-            
-            // Process groups of 6 characters (RRGGBB)
-            for (int i = 0; i < pixelData.length(); i += 6) {
-                if (index >= NUM_LEDS) break;
-                
-                // Convert hex string to RGB values
-                uint32_t rgb = strtoul(pixelData.substring(i, i + 6).c_str(), NULL, 16);
-                uint8_t r = (rgb >> 16) & 0xFF;
-                uint8_t g = (rgb >> 8) & 0xFF;
-                uint8_t b = rgb & 0xFF;
-                
-                // Update both states and LEDs
-                pixelStates[index] = CRGB(r, g, b);
-                leds[index] = CRGB(r, g, b);
-                index++;
+    // Handle video frame data - updated to handle binary data
+    server->on("/videoframe", HTTP_POST, [](AsyncWebServerRequest *request) {
+        request->send(200); // Send response immediately
+    },
+    NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        if (len == 768) { // 256 pixels * 3 bytes (RGB)
+            for (size_t i = 0; i < 256; i++) {
+                const size_t dataIndex = i * 3;
+                pixelStates[i] = CRGB(data[dataIndex], data[dataIndex + 1], data[dataIndex + 2]);
+                leds[i] = pixelStates[i];
             }
-            
             FastLED.show();
         }
-        request->send(200);
     });
 }

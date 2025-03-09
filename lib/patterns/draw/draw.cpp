@@ -23,71 +23,134 @@ void setupDrawPattern(AsyncWebServer* server) {
 <html>
 <head>
     <title>PixelBoard Draw</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(16, 20px);
-            gap: 1px;
-            background-color: #333;
-            padding: 10px;
-            width: fit-content;
-            user-select: none;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #282c34;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .pixel {
-            width: 20px;
-            height: 20px;
-            background-color: #000;
-            border: 1px solid #444;
-            cursor: pointer;
+        .toolbar {
+            width: min(80%, 600px);
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #3b3f47;
+            border-radius: 10px;
+            border: 1px solid #61dafb;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
         }
-        .controls {
-            margin: 10px 0;
+        .tool-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            padding-right: 15px;
+            border-right: 1px solid #61dafb;
+        }
+        .tool-group:last-child {
+            border-right: none;
+            padding-right: 0;
         }
         .color-btn {
-            padding: 10px 20px;
-            margin: 0 5px;
+            width: 32px;
+            height: 32px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+            position: relative;
         }
-        #white { background-color: #fff; color: #000; }
-        #red { background-color: #f00; color: #fff; }
-        #green { background-color: #0f0; color: #000; }
-        #blue { background-color: #00f; color: #fff; }
-        #clear { background-color: #666; color: #fff; }
-        .upload-btn {
-            padding: 10px 20px;
-            margin: 10px 5px;
-            border: none;
-            border-radius: 5px;
+        .color-btn.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px #61dafb;
+        }
+        .color-btn:hover {
+            transform: scale(1.1);
+        }
+        #white { background-color: #fff; }
+        #red { background-color: #ff4d4d; }
+        #green { background-color: #4dff4d; }
+        #blue { background-color: #4d4dff; }
+        .action-btn {
+            background-color: #282c34;
+            color: #61dafb;
+            border: 1px solid #61dafb;
+            padding: 8px 12px;
+            border-radius: 4px;
             cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
+            font-weight: bold;
+            transition: all 0.2s;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn:hover {
+            background-color: #61dafb;
+            color: #282c34;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            background-color: #3b3f47;
+            padding: 20px;
+            border-radius: 10px;
+            aspect-ratio: 1;
+            width: min(80%, 600px);
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        .pixel {
+            aspect-ratio: 1;
+            background-color: #282c34;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
         }
         #imageInput {
             display: none;
         }
         .preview {
+            display: none;
             margin: 10px 0;
-            border: 1px solid #444;
+            border: 1px solid #61dafb;
+            border-radius: 4px;
+            max-width: 100%;
+        }
+        .divider {
+            width: 1px;
+            height: 24px;
+            background-color: #61dafb;
+            margin: 0 10px;
         }
     </style>
 </head>
 <body>
-    <h1>PixelBoard Draw</h1>
-    <div class="controls">
-        <button class="color-btn" id="white">White</button>
-        <button class="color-btn" id="red">Red</button>
-        <button class="color-btn" id="green">Green</button>
-        <button class="color-btn" id="blue">Blue</button>
-        <button class="color-btn" id="clear">Clear</button>
+    <div class="toolbar">
+        <div class="tool-group">
+            <button class="color-btn active" id="white" title="White"></button>
+            <button class="color-btn" id="red" title="Red"></button>
+            <button class="color-btn" id="green" title="Green"></button>
+            <button class="color-btn" id="blue" title="Blue"></button>
+        </div>
+        <div class="tool-group">
+            <button class="action-btn" id="clear">Clear</button>
+            <label class="action-btn" for="imageInput">Upload Image</label>
+            <input type="file" id="imageInput" accept="image/*">
+        </div>
     </div>
-    <div>
-        <input type="file" id="imageInput" accept="image/*">
-        <button class="upload-btn" onclick="document.getElementById('imageInput').click()">Upload Image</button>
-        <canvas id="preview" class="preview" width="160" height="160" style="display: none;"></canvas>
-    </div>
+    
     <div class="grid" id="pixelGrid"></div>
+    <canvas id="preview" class="preview" width="160" height="160"></canvas>
 
     <script>
         const grid = document.getElementById('pixelGrid');
@@ -122,22 +185,35 @@ void setupDrawPattern(AsyncWebServer* server) {
         });
 
         // Color button handlers
-        document.getElementById('white').addEventListener('click', () => {
-            currentColor = {r: 255, g: 255, b: 255};
+        const colorButtons = document.querySelectorAll('.color-btn');
+        colorButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons
+                colorButtons.forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                btn.classList.add('active');
+                
+                switch(btn.id) {
+                    case 'white':
+                        currentColor = {r: 255, g: 255, b: 255};
+                        break;
+                    case 'red':
+                        currentColor = {r: 255, g: 77, b: 77};
+                        break;
+                    case 'green':
+                        currentColor = {r: 77, g: 255, b: 77};
+                        break;
+                    case 'blue':
+                        currentColor = {r: 77, g: 77, b: 255};
+                        break;
+                }
+            });
         });
-        document.getElementById('red').addEventListener('click', () => {
-            currentColor = {r: 255, g: 0, b: 0};
-        });
-        document.getElementById('green').addEventListener('click', () => {
-            currentColor = {r: 0, g: 255, b: 0};
-        });
-        document.getElementById('blue').addEventListener('click', () => {
-            currentColor = {r: 0, g: 0, b: 255};
-        });
+
         document.getElementById('clear').addEventListener('click', () => {
             const pixels = document.getElementsByClassName('pixel');
             for(let pixel of pixels) {
-                pixel.style.backgroundColor = '#000';
+                pixel.style.backgroundColor = '#282c34';
             }
             fetch('/drawclear');
         });
