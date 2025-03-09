@@ -5,3 +5,10 @@
 .vscode/ipch
 .DS_Store
 cspell.json
+*.pem
+*.key
+*.crt
+.env*
+config.json
+secrets.h
+credentials.h
