@@ -9,6 +9,7 @@
 #define DATA_PIN 26
 #define NUM_LEDS 256
 #define COLOR_ORDER GRB
+#define BUTTON_PIN 0  // Built-in boot button on most ESP32 dev boards
 
 Preferences preferences;
 
@@ -52,8 +53,26 @@ void next_pattern() {
   Serial.println(g_current_pattern_number);
 }
 
+void clearWiFiCredentials() {
+  preferences.begin("wifi", false);
+  preferences.clear();
+  preferences.end();
+  Serial.println("WiFi credentials cleared!");
+  ESP.restart();
+}
+
 void setup() {
   Serial.begin(460800);
+  
+  // Check if button is pressed during boot
+  pinMode(BUTTON_PIN, INPUT);
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    delay(3000);  // Wait to confirm it's not a glitch
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      clearWiFiCredentials();
+    }
+  }
+  
   loadPrefs();
   
   // 1) Configure the strip first
@@ -91,6 +110,16 @@ void loop()
 
   // Periodic saves
   EVERY_N_SECONDS(15) { savePrefs(); }
+
+  // Check for serial commands
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    
+    if (cmd == "clearwifi") {
+      clearWiFiCredentials();
+    }
+  }
 
   nap(1);
 }
