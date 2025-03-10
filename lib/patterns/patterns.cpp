@@ -2,9 +2,7 @@
 #include "twinkle/twinkle.h"
 #include "draw/draw.h"
 #include "video/video.h"
-// include "spotify/spotify.h"
-
-
+#include "type/type.h"
 
 #define XY(x, y) ((y) % 2 == 0 ?  ((y) * 16 + (15 - (x))) : ((y) * 16 + (x)) )
 //This macro will map the 2D coordinates (0, 0) to LED index 0, using a serpentine map. 
@@ -31,7 +29,6 @@ void swirl(CRGB* leds);
 void meteorRain(CRGB* leds);
 void colorWipe(CRGB* leds);
 void clockCountdown(CRGB* leds);
-// void spotifyCover(CRGB* leds);
 
 // Provide the actual array definition
 Pattern g_patternList[] = {
@@ -56,8 +53,8 @@ Pattern g_patternList[] = {
     { "Color Wipe",        colorWipe },
     { "Clock Countdown",   clockCountdown },
     { "Draw",              draw },
-    { "Video",             video }
-  //  { "Spotify Cover",     spotifyCover }
+    { "Video",             video },
+    { "Type",              type }
 };
 
 // And the size of that array

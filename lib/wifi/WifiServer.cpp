@@ -16,6 +16,7 @@
 #include "patterns.h"          // For g_patternList, PATTERN_COUNT, etc.
 #include "draw/draw.h"         // For setupDrawHandler
 #include "video/video.h"       // For setupVideoPlayer
+#include "type/type.h"         // For setupTypePattern
 #include "SPIFFS.h"
 
 // -------------------------------------------------------------------
@@ -587,6 +588,11 @@ static void setupHomePage() {
                 const iframe = document.createElement('iframe');
                 iframe.src = '/video';
                 previewPanel.appendChild(iframe);
+            } else if (selectedPattern.toLowerCase().includes('text') || selectedPattern.toLowerCase().includes('type')) {
+                // Load text/type interface
+                const iframe = document.createElement('iframe');
+                iframe.src = '/type';
+                previewPanel.appendChild(iframe);
             } else {
                 // Start preview updates for regular patterns
                 startPreviewUpdates();
@@ -597,7 +603,9 @@ static void setupHomePage() {
                 .then(data => {
                     console.log('Pattern updated:', data);
                     if (!selectedPattern.toLowerCase().includes('draw') && 
-                        !selectedPattern.toLowerCase().includes('video')) {
+                        !selectedPattern.toLowerCase().includes('video') &&
+                        !selectedPattern.toLowerCase().includes('text') &&
+                        !selectedPattern.toLowerCase().includes('type')) {
                         // Wait 1 second before refreshing preview to allow pattern to initialize
                         setTimeout(() => {
                             refreshPreview();
@@ -749,6 +757,7 @@ void wifiServerSetup() {
     setupSpeedHandler();
     setupVideoPlayer(&server);
     setupDrawPattern(&server);
+    setupTypePattern(&server);  // Add the type pattern setup
     startServer();
 
     // Debug: List files in SPIFFS
