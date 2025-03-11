@@ -5,6 +5,9 @@
 #define COLOR_ORDER GRB
 extern int BRIGHTNESS;
 
+// XY mapping for 16x16 matrix with alternating row directions
+#define XY(x, y) ((y) % 2 == 0 ?  ((y) * 16 + (15 - (x))) : ((y) * 16 + (x)) )
+
 #include <FastLED.h>
 
 void setBrightness(int brightness);

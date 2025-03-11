@@ -363,12 +363,21 @@ void setupTypePattern(AsyncWebServer* server) {
             align-items: center;
             background: #282c34;
         }
-        .preview-frame {
-            width: 100%;
-            height: 100%;
-            border: none;
-            border-radius: 10px;
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            padding: 20px;
             background: #3b3f47;
+            border-radius: 10px;
+            aspect-ratio: 1;
+            width: min(80%, 600px);
+        }
+        .preview-pixel {
+            aspect-ratio: 1;
+            background: #282c34;
+            border-radius: 2px;
+            transition: background-color 0.3s ease;
         }
     </style>
 </head>
@@ -394,15 +403,40 @@ void setupTypePattern(AsyncWebServer* server) {
     </div>
     
     <div class="preview-container">
-        <iframe src="/pixelstatus" class="preview-frame" id="previewFrame"></iframe>
+        <div class="preview-grid" id="previewGrid"></div>
     </div>
 
     <script>
         let previewUpdateInterval;
         
+        function createPreviewGrid() {
+            const grid = document.getElementById('previewGrid');
+            for (let i = 0; i < 256; i++) {
+                const pixel = document.createElement('div');
+                pixel.className = 'preview-pixel';
+                pixel.id = 'pixel-' + i;
+                grid.appendChild(pixel);
+            }
+        }
+
         function updatePreview() {
-            const frame = document.getElementById('previewFrame');
-            frame.src = '/pixelstatus?' + new Date().getTime(); // Force refresh
+            fetch('/pixelStatus')
+                .then(response => response.arrayBuffer())
+                .then(buffer => {
+                    const pixels = new Uint8Array(buffer);
+                    for (let i = 0; i < 256; i++) {
+                        const baseIndex = i * 3;
+                        const r = pixels[baseIndex];
+                        const g = pixels[baseIndex + 1];
+                        const b = pixels[baseIndex + 2];
+                        
+                        const pixelElement = document.getElementById('pixel-' + i);
+                        if (pixelElement) {
+                            pixelElement.style.backgroundColor = `rgb(${r},${g},${b})`;
+                        }
+                    }
+                })
+                .catch(error => console.error('Error updating preview:', error));
         }
 
         function updateText() {
@@ -445,6 +479,7 @@ void setupTypePattern(AsyncWebServer* server) {
 
         // Start periodic preview updates
         function startPreviewUpdates() {
+            createPreviewGrid(); // Create the grid first
             updatePreview(); // Initial update
             previewUpdateInterval = setInterval(updatePreview, 100); // Update every 100ms
         }
