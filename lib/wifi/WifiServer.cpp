@@ -17,6 +17,7 @@
 #include "draw/draw.h"         // For setupDrawHandler
 #include "video/video.h"       // For setupVideoPlayer
 #include "type/type.h"         // For setupTypePattern
+#include "snake/snake.h"       // For setupSnakePattern
 #include "SPIFFS.h"
 
 // -------------------------------------------------------------------
@@ -61,6 +62,12 @@ static void setupBrightnessHandler();
 static void setupSpeedHandler();
 static void setupPixelStatusHandler();
 static void startServer();
+
+// Forward declarations for pattern setup functions
+void setupDrawPattern(AsyncWebServer* server);
+void setupVideoPattern(AsyncWebServer* server);
+void setupTypePattern(AsyncWebServer* server);
+void setupSnakePattern(AsyncWebServer* server);
 
 // -------------------------------------------------------------------
 // Load Wi-Fi credentials from NVS
@@ -593,6 +600,11 @@ static void setupHomePage() {
                 const iframe = document.createElement('iframe');
                 iframe.src = '/type';
                 previewPanel.appendChild(iframe);
+            } else if (selectedPattern.toLowerCase().includes('snake')) {
+                // Load snake game interface
+                const iframe = document.createElement('iframe');
+                iframe.src = '/snake';
+                previewPanel.appendChild(iframe);
             } else {
                 // Start preview updates for regular patterns
                 startPreviewUpdates();
@@ -605,7 +617,8 @@ static void setupHomePage() {
                     if (!selectedPattern.toLowerCase().includes('draw') && 
                         !selectedPattern.toLowerCase().includes('video') &&
                         !selectedPattern.toLowerCase().includes('text') &&
-                        !selectedPattern.toLowerCase().includes('type')) {
+                        !selectedPattern.toLowerCase().includes('type') &&
+                        !selectedPattern.toLowerCase().includes('snake')) {
                         // Wait 1 second before refreshing preview to allow pattern to initialize
                         setTimeout(() => {
                             refreshPreview();
@@ -735,6 +748,17 @@ static void startServer() {
   setupSpeedHandler();
   setupPixelStatusHandler();  // Add the new handler
   
+  // Set up API endpoints for each pattern with web UI
+  setupDrawPattern(&server);
+  
+  // Comment out undefined functions that are causing linker errors
+  // setupVideoPattern(&server);
+  
+  setupTypePattern(&server);
+  
+  // Setup snake pattern
+  setupSnakePattern(&server);
+  
   // Serve the libgif.js file from SPIFFS
   server.begin();
   Serial.println("[WiFi] Normal Web server started on port 80");
@@ -755,7 +779,8 @@ void wifiServerSetup() {
     setupPatternHandler();
     setupBrightnessHandler();
     setupSpeedHandler();
-    setupVideoPlayer(&server);
+    // Comment out the undefined function that's causing linker errors
+    // setupVideoPattern(&server);
     setupDrawPattern(&server);
     setupTypePattern(&server);  // Add the type pattern setup
     startServer();

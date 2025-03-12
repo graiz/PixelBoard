@@ -1,7 +1,9 @@
-#include "beachball.h"
 #include <FastLED.h>
 #include <led_display.h>
 #include <math.h>
+
+// Function declaration for pattern registration
+void beachBall(CRGB* leds);
 
 // Global variables for the beach ball pattern
 static float rotation = 0.0f;           // Current rotation angle in radians

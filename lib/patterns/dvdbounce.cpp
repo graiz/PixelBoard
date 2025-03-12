@@ -1,6 +1,8 @@
-#include "dvdbounce.h"
 #include <FastLED.h>
 #include <led_display.h>
+
+// Function declaration for pattern registration
+void dvdBounce(CRGB* leds);
 
 // Global state for the DVD bounce pattern
 static float x = 0;

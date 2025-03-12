@@ -1,5 +1,8 @@
-#include "twinkle.h"
+#include <FastLED.h>
 #include <led_display.h>
+
+// Function declaration for pattern registration
+void twinkle(CRGB* leds);
 
 void twinkle(CRGB* leds) {
     // Randomly select LEDs to twinkle
