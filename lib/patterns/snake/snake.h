@@ -19,7 +19,7 @@ void setDirection(Direction newDirection);
 void updateSnakeGame();
 void renderSnakeGame(CRGB* leds);
 Direction getAIMove();
-void toggleAIMode();
+void toggleAIModeSnake();
 
 // Function declarations for the snake pattern
 void snake(CRGB* leds);

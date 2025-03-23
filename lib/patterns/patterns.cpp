@@ -6,6 +6,7 @@
 #include "video/video.h"
 #include "type/type.h"
 #include "snake/snake.h"
+#include "tetris/tetris.h"
 
 // Include simple patterns directly
 #include "twinkle.cpp"
@@ -66,7 +67,8 @@ Pattern g_patternList[] = {
     { "Video",             video },
     { "Type",              type },
     { "Random",            randomPattern },
-    { "Snake Game",         snake }
+    { "Snake Game",         snake },
+    { "Tetris Game",       tetris }
 };
 
 // And the size of that array

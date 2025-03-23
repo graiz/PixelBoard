@@ -328,7 +328,7 @@ void snake(CRGB* leds) {
 }
 
 // Toggle AI mode
-void toggleAIMode() {
+void toggleAIModeSnake() {
   aiMode = !aiMode;
   Serial.printf("AI mode %s\n", aiMode ? "enabled" : "disabled");
 }
@@ -359,7 +359,21 @@ void setupSnakePattern(AsyncWebServer* server) {
             background: #3b3f47;
             padding: 10px 15px;
             border-bottom: 1px solid #61dafb;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         h1 {
             margin: 0;
@@ -379,14 +393,14 @@ void setupSnakePattern(AsyncWebServer* server) {
         .controls {
             padding: 10px;
             display: flex;
-            flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 8px;
         }
         .d-pad {
             display: grid;
-            grid-template-columns: repeat(3, 60px);
-            grid-template-rows: repeat(3, 60px);
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
             gap: 5px;
         }
         .d-btn {
@@ -410,22 +424,10 @@ void setupSnakePattern(AsyncWebServer* server) {
             box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
             transform: translateY(2px);
         }
-        .d-btn.up {
-            grid-column: 2;
-            grid-row: 1;
-        }
-        .d-btn.left {
-            grid-column: 1;
-            grid-row: 2;
-        }
-        .d-btn.right {
-            grid-column: 3;
-            grid-row: 2;
-        }
-        .d-btn.down {
-            grid-column: 2;
-            grid-row: 3;
-        }
+        .d-btn.up { grid-column: 2; grid-row: 1; }
+        .d-btn.left { grid-column: 1; grid-row: 2; }
+        .d-btn.right { grid-column: 3; grid-row: 2; }
+        .d-btn.down { grid-column: 2; grid-row: 3; }
         .center {
             grid-column: 2;
             grid-row: 2;
@@ -442,22 +444,18 @@ void setupSnakePattern(AsyncWebServer* server) {
             border: 1px solid #555;
             box-shadow: inset 0 0 3px rgba(0,0,0,0.5);
         }
-        .game-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-        }
         .game-btn {
             background-color: #444;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 15px;
             border-radius: 6px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
+            white-space: nowrap;
         }
         .game-btn:hover {
             background-color: #555;
@@ -467,35 +465,21 @@ void setupSnakePattern(AsyncWebServer* server) {
             box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
             transform: translateY(2px);
         }
-        .ai-mode {
-            margin-top: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
         .ai-btn {
             background-color: #444;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 15px;
             border-radius: 6px;
             font-size: 14px;
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
+            white-space: nowrap;
         }
         .ai-btn.active {
             background-color: #61dafb;
             color: #282c34;
-        }
-        .ai-btn:hover {
-            background-color: #555;
-        }
-        .ai-btn:active {
-            background-color: #555;
-            box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
-            transform: translateY(2px);
         }
         .preview-container {
             margin: 10px;
@@ -520,68 +504,43 @@ void setupSnakePattern(AsyncWebServer* server) {
             border-radius: 2px;
             transition: background-color 0.3s ease;
         }
-        /* Iframe-specific adjustments */
-        @media screen and (max-height: 700px) {
+        
+        @media screen and (max-width: 600px) {
             .header {
+                flex-direction: column;
+                align-items: stretch;
                 padding: 5px;
+            }
+            .header-left, .header-right {
+                justify-content: center;
             }
             h1 {
                 font-size: 1.2rem;
+                text-align: center;
             }
-            .game-info {
-                padding: 5px 10px;
-            }
-            .d-pad {
-                grid-template-columns: repeat(3, 50px);
-                grid-template-rows: repeat(3, 50px);
-            }
-            .controls {
-                padding: 5px;
-            }
-            .game-buttons {
-                margin-top: 10px;
-            }
-            .game-btn {
-                padding: 8px 15px;
-                font-size: 14px;
-            }
-            .key-icon {
-                font-size: 16px;
-                padding: 3px 6px;
-            }
-            .ai-mode {
-                margin-top: 8px;
-            }
-            .ai-btn {
+            .game-btn, .ai-btn {
                 padding: 6px 12px;
                 font-size: 12px;
             }
-        }
-        
-        @media screen and (max-height: 600px) {
             .d-pad {
                 grid-template-columns: repeat(3, 40px);
                 grid-template-rows: repeat(3, 40px);
-            }
-            .key-icon {
-                font-size: 14px;
-                padding: 2px 4px;
-            }
-            .game-btn {
-                padding: 6px 12px;
-                font-size: 12px;
             }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>PixelBoard Snake Game</h1>
-    </div>
-    
-    <div class="game-info">
-        <div class="score">Score: <span id="scoreValue">0</span></div>
-        <div class="status" id="gameStatus">Press Start to Play</div>
+        <div class="header-left">
+            <h1>PixelBoard Snake</h1>
+            <div class="score">Score: <span id="scoreValue">0</span></div>
+            <div class="status" id="gameStatus">Press Start to Play</div>
+        </div>
+        <div class="header-right">
+            <button class="game-btn" id="btnStart">Start Game</button>
+            <button class="game-btn" id="btnRestart">Restart</button>
+            <button class="ai-btn" id="btnAI">Enable AI</button>
+        </div>
     </div>
     
     <div class="preview-container">
@@ -596,29 +555,16 @@ void setupSnakePattern(AsyncWebServer* server) {
             <button class="d-btn right" id="btnRight"><span class="key-icon">&rarr;</span></button>
             <button class="d-btn down" id="btnDown"><span class="key-icon">&darr;</span></button>
         </div>
-        
-        <div class="game-buttons">
-            <button class="game-btn" id="btnStart">Start Game</button>
-            <button class="game-btn" id="btnRestart">Restart</button>
-        </div>
-        
-        <!-- Add AI mode toggle -->
-        <div class="ai-mode">
-            <button class="ai-btn" id="btnAI">Enable AI Mode</button>
-        </div>
     </div>
 
-    <!-- Add keyboard shortcut info -->
-    <div style="text-align: center; margin-top: 10px; font-size: 0.8rem; color: #aaa;">
+    <div style="text-align: center; margin: 5px; font-size: 0.8rem; color: #aaa;">
         Keyboard: Use arrow keys to control
     </div>
 
     <script>
         let previewUpdateInterval;
-        let score = 0;
         let gameState = 'waiting'; // 'waiting', 'playing', 'gameover'
-        let lastDirection = ''; // Track last direction sent
-        let controlInterval; // Interval for continuous control
+        let currentDirection = ''; // Track current direction
         let aiMode = false; // Track AI mode state
         
         // Create preview grid
@@ -652,59 +598,18 @@ void setupSnakePattern(AsyncWebServer* server) {
                 })
                 .catch(error => console.error('Error updating preview:', error));
                 
-            // Also update the game state
+            // Update game state
             fetchGameState();
         }
         
-        // Fetch game state (score and status)
-        function fetchGameState() {
-            fetch('/snakeState')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('scoreValue').textContent = data.score;
-                    
-                    const statusElem = document.getElementById('gameStatus');
-                    if (data.state === 'waiting') {
-                        statusElem.textContent = 'Press Start to Play';
-                        gameState = 'waiting';
-                    } else if (data.state === 'playing') {
-                        statusElem.textContent = 'Game In Progress';
-                        gameState = 'playing';
-                    } else if (data.state === 'gameover') {
-                        statusElem.textContent = 'Game Over!';
-                        gameState = 'gameover';
-                        clearInterval(controlInterval); // Stop continuous control
-                    }
-                    
-                    // Update AI mode button if state changed from backend
-                    if (data.aiMode !== undefined && data.aiMode !== aiMode) {
-                        aiMode = data.aiMode;
-                        updateAIButton();
-                    }
-                })
-                .catch(error => console.error('Error fetching game state:', error));
-        }
-        
-        // Control functions
+        // Send direction only when it changes
         function sendDirection(direction) {
-            lastDirection = direction; // Store last direction
-            
-            fetch(`/snakeControl?dir=${direction}`)
-                .then(response => response.text())
-                .catch(error => console.error('Error sending direction:', error));
-        }
-        
-        // Start continuous control - sends last direction every 100ms to keep snake moving
-        function startContinuousControl() {
-            if (controlInterval) {
-                clearInterval(controlInterval);
+            if (direction !== currentDirection) {
+                currentDirection = direction;
+                fetch(`/snakeControl?dir=${direction}`)
+                    .then(response => response.text())
+                    .catch(error => console.error('Error sending direction:', error));
             }
-            
-            controlInterval = setInterval(() => {
-                if (gameState === 'playing' && lastDirection) {
-                    sendDirection(lastDirection);
-                }
-            }, 100); // Send every 100ms
         }
         
         function startGame() {
@@ -713,7 +618,6 @@ void setupSnakePattern(AsyncWebServer* server) {
                 .then(() => {
                     gameState = 'playing';
                     document.getElementById('gameStatus').textContent = 'Game In Progress';
-                    startContinuousControl(); // Start continuous control
                 })
                 .catch(error => console.error('Error starting game:', error));
         }
@@ -722,10 +626,10 @@ void setupSnakePattern(AsyncWebServer* server) {
             fetch('/snakeControl?action=restart')
                 .then(response => response.text())
                 .then(() => {
-                    gameState = 'playing'; // Set to playing since we modified initSnakeGame
+                    gameState = 'playing';
+                    currentDirection = '';  // Reset direction
                     document.getElementById('gameStatus').textContent = 'Game In Progress';
                     document.getElementById('scoreValue').textContent = '0';
-                    startContinuousControl(); // Restart continuous control
                 })
                 .catch(error => console.error('Error restarting game:', error));
         }
@@ -733,9 +637,9 @@ void setupSnakePattern(AsyncWebServer* server) {
         // Toggle AI mode
         function toggleAIMode() {
             aiMode = !aiMode;
+            currentDirection = '';  // Reset direction when toggling AI
             updateAIButton();
             
-            // Send mode change to server
             fetch(`/snakeControl?action=${aiMode ? 'aiOn' : 'aiOff'}`)
                 .then(response => response.text())
                 .catch(error => console.error('Error toggling AI mode:', error));
@@ -745,7 +649,7 @@ void setupSnakePattern(AsyncWebServer* server) {
         function updateAIButton() {
             const aiButton = document.getElementById('btnAI');
             if (aiMode) {
-                aiButton.textContent = 'Disable AI Mode';
+                aiButton.textContent = 'Disable AI';
                 aiButton.classList.add('active');
                 // When AI mode is enabled, disable manual controls
                 document.querySelectorAll('.d-btn').forEach(btn => {
@@ -753,7 +657,7 @@ void setupSnakePattern(AsyncWebServer* server) {
                     btn.style.opacity = 0.5;
                 });
             } else {
-                aiButton.textContent = 'Enable AI Mode';
+                aiButton.textContent = 'Enable AI';
                 aiButton.classList.remove('active');
                 // Re-enable manual controls
                 document.querySelectorAll('.d-btn').forEach(btn => {
@@ -765,23 +669,39 @@ void setupSnakePattern(AsyncWebServer* server) {
         
         // Add event listeners
         document.getElementById('btnUp').addEventListener('click', () => {
-            sendDirection('up');
-            if (gameState === 'waiting') startGame(); // Auto-start on direction
+            if (!aiMode && gameState === 'playing') {
+                sendDirection('up');
+            } else if (gameState === 'waiting') {
+                startGame();
+                sendDirection('up');
+            }
         });
         
         document.getElementById('btnDown').addEventListener('click', () => {
-            sendDirection('down');
-            if (gameState === 'waiting') startGame(); // Auto-start on direction
+            if (!aiMode && gameState === 'playing') {
+                sendDirection('down');
+            } else if (gameState === 'waiting') {
+                startGame();
+                sendDirection('down');
+            }
         });
         
         document.getElementById('btnLeft').addEventListener('click', () => {
-            sendDirection('left');
-            if (gameState === 'waiting') startGame(); // Auto-start on direction
+            if (!aiMode && gameState === 'playing') {
+                sendDirection('left');
+            } else if (gameState === 'waiting') {
+                startGame();
+                sendDirection('left');
+            }
         });
         
         document.getElementById('btnRight').addEventListener('click', () => {
-            sendDirection('right');
-            if (gameState === 'waiting') startGame(); // Auto-start on direction
+            if (!aiMode && gameState === 'playing') {
+                sendDirection('right');
+            } else if (gameState === 'waiting') {
+                startGame();
+                sendDirection('right');
+            }
         });
         
         document.getElementById('btnStart').addEventListener('click', startGame);
@@ -790,33 +710,25 @@ void setupSnakePattern(AsyncWebServer* server) {
         
         // Add keyboard controls
         document.addEventListener('keydown', function(e) {
-            // Skip keyboard controls if AI mode is enabled
-            if (aiMode) return;
-            
-            let dirSent = false;
-            
-            switch(e.key) {
-                case 'ArrowUp':
-                    sendDirection('up');
-                    dirSent = true;
-                    break;
-                case 'ArrowDown':
-                    sendDirection('down');
-                    dirSent = true;
-                    break;
-                case 'ArrowLeft':
-                    sendDirection('left');
-                    dirSent = true;
-                    break;
-                case 'ArrowRight':
-                    sendDirection('right');
-                    dirSent = true;
-                    break;
-            }
-            
-            // Auto-start game on first direction key
-            if (dirSent && gameState === 'waiting') {
-                startGame();
+            if (!aiMode && (gameState === 'playing' || gameState === 'waiting')) {
+                switch(e.key) {
+                    case 'ArrowUp':
+                        if (gameState === 'waiting') startGame();
+                        sendDirection('up');
+                        break;
+                    case 'ArrowDown':
+                        if (gameState === 'waiting') startGame();
+                        sendDirection('down');
+                        break;
+                    case 'ArrowLeft':
+                        if (gameState === 'waiting') startGame();
+                        sendDirection('left');
+                        break;
+                    case 'ArrowRight':
+                        if (gameState === 'waiting') startGame();
+                        sendDirection('right');
+                        break;
+                }
             }
         });
         
@@ -824,18 +736,13 @@ void setupSnakePattern(AsyncWebServer* server) {
         document.addEventListener('DOMContentLoaded', function() {
             createPreviewGrid();
             updatePreview();
-            // Update more frequently for better responsiveness
             previewUpdateInterval = setInterval(updatePreview, 100);
-            startContinuousControl(); // Start continuous control
         });
         
-        // Clean up interval when page is unloaded
+        // Clean up
         window.addEventListener('unload', function() {
             if (previewUpdateInterval) {
                 clearInterval(previewUpdateInterval);
-            }
-            if (controlInterval) {
-                clearInterval(controlInterval);
             }
         });
     </script>

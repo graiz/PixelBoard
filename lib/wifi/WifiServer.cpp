@@ -68,6 +68,7 @@ void setupDrawPattern(AsyncWebServer* server);
 void setupVideoPattern(AsyncWebServer* server);
 void setupTypePattern(AsyncWebServer* server);
 void setupSnakePattern(AsyncWebServer* server);
+void setupTetrisPattern(AsyncWebServer* server);  // Add Tetris setup declaration
 
 // -------------------------------------------------------------------
 // Load Wi-Fi credentials from NVS
@@ -605,6 +606,11 @@ static void setupHomePage() {
                 const iframe = document.createElement('iframe');
                 iframe.src = '/snake';
                 previewPanel.appendChild(iframe);
+            } else if (selectedPattern.toLowerCase().includes('tetris')) {
+                // Load tetris game interface
+                const iframe = document.createElement('iframe');
+                iframe.src = '/tetris';
+                previewPanel.appendChild(iframe);
             } else {
                 // Start preview updates for regular patterns
                 startPreviewUpdates();
@@ -618,7 +624,8 @@ static void setupHomePage() {
                         !selectedPattern.toLowerCase().includes('video') &&
                         !selectedPattern.toLowerCase().includes('text') &&
                         !selectedPattern.toLowerCase().includes('type') &&
-                        !selectedPattern.toLowerCase().includes('snake')) {
+                        !selectedPattern.toLowerCase().includes('snake') &&
+                        !selectedPattern.toLowerCase().includes('tetris')) {
                         // Wait 1 second before refreshing preview to allow pattern to initialize
                         setTimeout(() => {
                             refreshPreview();
@@ -759,6 +766,9 @@ static void startServer() {
   // Setup snake pattern
   setupSnakePattern(&server);
   
+  // Setup Tetris pattern
+  setupTetrisPattern(&server);
+  
   // Serve the libgif.js file from SPIFFS
   server.begin();
   Serial.println("[WiFi] Normal Web server started on port 80");
@@ -782,7 +792,9 @@ void wifiServerSetup() {
     // Comment out the undefined function that's causing linker errors
     // setupVideoPattern(&server);
     setupDrawPattern(&server);
-    setupTypePattern(&server);  // Add the type pattern setup
+    setupTypePattern(&server);
+    setupSnakePattern(&server);
+    setupTetrisPattern(&server);  // Add Tetris setup
     startServer();
 
     // Debug: List files in SPIFFS

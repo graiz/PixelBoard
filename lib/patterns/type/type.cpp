@@ -1,6 +1,7 @@
 #include "type.h"
 #include <led_display.h>
 #include "freemono.h" // Include the FreeMono font
+#include "font_test.h" // Include the test font
 
 
 
@@ -207,31 +208,33 @@ static const uint8_t font8x8[] PROGMEM = {
 
 
 // Global variables for text scrolling
-static String currentText = "Hello World";
+static String currentText = "PixelBoard";
 static int scrollPosition = 0;
 static CRGB textColor = CRGB::White;
 static unsigned long lastUpdate = 0;
 static const int scrollDelay = 50;  // Delay between scroll steps in ms
 static bool useLargeFont = false;
 static bool useMonoFont = false;    // New variable for the FreeMono font
+static bool useTestFont = false;    // New variable for the test font
 
 // Helper function to get character index in font array
 int getCharIndex(char c, bool isLargeFont) {
-    if (useMonoFont) {
+    if (useTestFont) {
+        // Test font handles its own character mapping
+        return 0;
+    } else if (useMonoFont) {
         // FreeMono font handles its own character mapping
-        return c;
+        return 0;
     } else if (isLargeFont) {
         // For 8x8 font, we can directly use ASCII value offset
-        if (c >= 0x20 && c <= 0x7F) {
-            return c - 0x20;
-        }
-        return 0; // Return space for invalid characters
+        return c;
     } else {
         // For 5x7 font
-        if (c >= 0x20 && c <= 0x7A) {  // Includes lowercase letters (a-z)
-            return c - 0x20;
+        // Check for valid characters
+        if (c < 32 || c > 126) {
+            c = '?'; // Use question mark for invalid characters
         }
-        return 0; // Return space for invalid characters
+        return c - 32; // Adjust for font array that starts at ASCII 32 (space)
     }
 }
 
@@ -310,13 +313,65 @@ void drawCharMono(CRGB* leds, unsigned char c, int xOffset, int yOffset, uint8_t
     }
 }
 
+// New function to draw characters using the test font
+void drawCharTest(CRGB* leds, char c, int xOffset, int yOffset, uint8_t size = 1) {
+    // Initialize font table if needed
+    static bool fontInitialized = false;
+    if (!fontInitialized) {
+        initFontTable();
+        fontInitialized = true;
+    }
+    
+    // Get the letter data for the character
+    const LetterData& letter = getLetterData(c);
+    
+    // If no valid data, skip
+    if (letter.data == nullptr) {
+        return;
+    }
+    
+    // Scale factor for the font
+    float scale = 0.05; // Adjust this as needed to fit the display
+    
+    // Dimensions of original bitmap (assuming 12 pixels per row in the bitmap)
+    int bitmapWidth = letter.width / 12;
+    
+    // Loop through the bitmap data
+    for (int y = 0; y < letter.height; y++) {
+        for (int x = 0; x < bitmapWidth; x++) {
+            // Calculate index into the data array
+            int dataIndex = y * bitmapWidth + x;
+            
+            // Get the value at this position (0-255)
+            uint8_t pixelValue = letter.data[dataIndex];
+            
+            // If pixel has a value, draw it
+            if (pixelValue > 0) {
+                // Calculate the position on the LED matrix with scaling
+                int16_t displayX = xOffset + (int16_t)(x * scale);
+                int16_t displayY = yOffset + (int16_t)(y * scale);
+                
+                // Check if the pixel is within the display
+                if (displayX >= 0 && displayX < 16 && displayY >= 0 && displayY < 16) {
+                    // Set color based on pixel value (brighter for higher values)
+                    CRGB pixelColor = textColor;
+                    pixelColor.nscale8_video(map(pixelValue, 1, 255, 64, 255));
+                    leds[XY(displayX, displayY)] = pixelColor;
+                }
+            }
+        }
+    }
+}
+
 void type(CRGB* leds) {
     // Clear the display
     fill_solid(leds, NUM_LEDS, CRGB::Black);
     
     // Calculate total width of text
     int charWidth;
-    if (useMonoFont) {
+    if (useTestFont) {
+        charWidth = 8; // Adjust based on your test font
+    } else if (useMonoFont) {
         charWidth = 8; // Increased from 6 to give more space between characters
     } else {
         charWidth = useLargeFont ? 9 : 6; // 8 pixels + 1 space or 5 pixels + 1 space
@@ -338,7 +393,9 @@ void type(CRGB* leds) {
     for (size_t i = 0; i < currentText.length(); i++) {
         int xPos = 16 - scrollPosition + (i * charWidth);
         if (xPos > -charWidth && xPos < 16) {
-            if (useMonoFont) {
+            if (useTestFont) {
+                drawCharTest(leds, currentText[i], xPos, 4); // Draw using test font
+            } else if (useMonoFont) {
                 drawCharMono(leds, currentText[i], xPos, 4); // Draw using FreeMono font
             } else if (useLargeFont) {
                 drawCharLarge(leds, currentText[i], xPos, 4); // Center vertically for 8x8 font
@@ -355,241 +412,158 @@ void setupTypePattern(AsyncWebServer* server) {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PixelBoard Text</title>
+    <title>PixelBoard Type</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0;
-            background-color: #282c34;
-            color: #ffffff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            padding: 20px;
+            text-align: center;
+            background-color: #f0f0f0;
+            color: #333;
         }
-        .toolbar {
-            background: #3b3f47;
-            padding: 10px 20px;
-            border-bottom: 1px solid #61dafb;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .input-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex: 1;
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         input[type="text"] {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #61dafb;
-            background: #282c34;
-            color: #ffffff;
-            border-radius: 4px;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
             font-size: 16px;
         }
-        .controls-group {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .font-selection {
-            display: flex;
-            gap: 5px;
-        }
-        .font-btn {
-            background-color: #282c34;
-            color: #61dafb;
-            border: 1px solid #61dafb;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .font-btn.active {
-            background-color: #61dafb;
-            color: #282c34;
-        }
-        .color-selection {
-            display: flex;
-            gap: 5px;
-        }
-        .color-btn {
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .color-btn.active {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 2px #61dafb;
-        }
-        .update-btn {
-            background-color: #61dafb;
-            color: #282c34;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .update-btn:hover {
-            background-color: #4fa8d3;
-        }
-        .preview-container {
-            flex: 1;
-            padding: 20px;
+        .color-selection, .font-selection {
+            margin: 15px 0;
             display: flex;
             justify-content: center;
-            align-items: center;
-            background: #282c34;
+            flex-wrap: wrap;
         }
-        .preview-grid {
-            display: grid;
-            grid-template-columns: repeat(16, 1fr);
-            gap: 2px;
-            padding: 20px;
-            background: #3b3f47;
-            border-radius: 10px;
-            aspect-ratio: 1;
-            width: min(80%, 600px);
+        .color-btn, .font-btn {
+            margin: 5px;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
         }
-        .preview-pixel {
-            aspect-ratio: 1;
-            background: #282c34;
-            border-radius: 2px;
-            transition: background-color 0.3s ease;
+        .font-btn.active, .color-btn.active {
+            transform: scale(1.1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .header {
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .status {
+            color: #7f8c8d;
+            font-weight: bold;
+        }
+        button[type="submit"] {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+        button[type="submit"]:hover {
+            background: #2980b9;
         }
     </style>
 </head>
 <body>
-    <div class="toolbar">
-        <div class="input-group">
-            <input type="text" id="textInput" maxlength="50" placeholder="Enter text to display" value="Hello World">
+    <div class="container">
+        <div class="header">
+            <h1>PixelBoard Text Display</h1>
+            <div class="status">Enter text to display</div>
         </div>
-        <div class="controls-group">
-            <div class="font-selection">
-                <button class="font-btn active" data-size="small">Small</button>
-                <button class="font-btn" data-size="large">Large</button>
-                <button class="font-btn" data-size="mono">Mono</button>
-            </div>
-            <div class="color-selection">
-                <button class="color-btn active" style="background-color: #ffffff" data-color="white"></button>
-                <button class="color-btn" style="background-color: #ff4d4d" data-color="red"></button>
-                <button class="color-btn" style="background-color: #4dff4d" data-color="green"></button>
-                <button class="color-btn" style="background-color: #4d4dff" data-color="blue"></button>
-                <button class="color-btn" style="background-color: #ffff4d" data-color="yellow"></button>
-            </div>
+        
+        <input type="text" id="text-input" placeholder="Enter text to display" value="PixelBoard">
+        
+        <div class="color-selection">
+            <button class="color-btn active" style="background-color: #FFFFFF;" data-color="white"></button>
+            <button class="color-btn" style="background-color: #FF0000;" data-color="red"></button>
+            <button class="color-btn" style="background-color: #00FF00;" data-color="green"></button>
+            <button class="color-btn" style="background-color: #0000FF;" data-color="blue"></button>
+            <button class="color-btn" style="background-color: #FFFF00;" data-color="yellow"></button>
+            <button class="color-btn" style="background-color: #FF00FF;" data-color="purple"></button>
+            <button class="color-btn" style="background-color: #00FFFF;" data-color="cyan"></button>
         </div>
-    </div>
-    
-    <div class="preview-container">
-        <div class="preview-grid" id="previewGrid"></div>
+        
+        <div class="font-selection">
+            <button class="font-btn active" data-size="small">Small</button>
+            <button class="font-btn" data-size="large">Large</button>
+            <button class="font-btn" data-size="mono">Mono</button>
+            <button class="font-btn" data-size="test">Test Font</button>
+        </div>
+        
+        <button type="submit" id="submit-btn">Update Display</button>
     </div>
 
     <script>
-        let previewUpdateInterval;
-        
-        function createPreviewGrid() {
-            const grid = document.getElementById('previewGrid');
-            for (let i = 0; i < 256; i++) {
-                const pixel = document.createElement('div');
-                pixel.className = 'preview-pixel';
-                pixel.id = 'pixel-' + i;
-                grid.appendChild(pixel);
-            }
-        }
-
-        function updatePreview() {
-            fetch('/pixelStatus')
-                .then(response => response.arrayBuffer())
-                .then(buffer => {
-                    const pixels = new Uint8Array(buffer);
-                    for (let i = 0; i < 256; i++) {
-                        const baseIndex = i * 3;
-                        const r = pixels[baseIndex];
-                        const g = pixels[baseIndex + 1];
-                        const b = pixels[baseIndex + 2];
-                        
-                        const pixelElement = document.getElementById('pixel-' + i);
-                        if (pixelElement) {
-                            pixelElement.style.backgroundColor = `rgb(${r},${g},${b})`;
-                        }
-                    }
-                })
-                .catch(error => console.error('Error updating preview:', error));
-        }
-
-        function updateText() {
-            let text = document.getElementById('textInput').value;
-            if (text.length === 0) {
-                alert('Please enter some text');
-                return;
-            }
-            
-            let activeColor = document.querySelector('.color-btn.active').dataset.color;
-            let fontSize = document.querySelector('.font-btn.active').dataset.size;
-            
-            fetch(`/updatetext?text=${encodeURIComponent(text)}&color=${activeColor}&font=${fontSize}`)
-                .then(response => response.text())
-                .then(data => {
-                    updatePreview(); // Update preview after text change
-                });
-        }
-
-        document.querySelectorAll('.color-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-        });
-
-        document.querySelectorAll('.font-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-        });
-
-        // Add keyboard shortcut for Enter key
-        document.getElementById('textInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                updateText();
-            }
-        });
-
-        // Auto-update as text changes
-        document.getElementById('textInput').addEventListener('input', updateText);
-        
-        // Also update when font or color changes
-        document.querySelectorAll('.font-btn, .color-btn').forEach(btn => {
-            btn.addEventListener('click', updateText);
-        });
-
-        // Start periodic preview updates
-        function startPreviewUpdates() {
-            createPreviewGrid(); // Create the grid first
-            updatePreview(); // Initial update
-            previewUpdateInterval = setInterval(updatePreview, 100); // Update every 100ms
-        }
-
-        // Initialize preview on page load
         document.addEventListener('DOMContentLoaded', function() {
-            startPreviewUpdates();
-            // Set initial text
-            updateText();
-        });
-
-        // Clean up interval when page is unloaded
-        window.addEventListener('unload', function() {
-            if (previewUpdateInterval) {
-                clearInterval(previewUpdateInterval);
+            let activeColor = 'white';
+            let textInput = document.getElementById('text-input');
+            
+            // Set active color button
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    activeColor = this.dataset.color;
+                });
+            });
+            
+            // Function to update the text display
+            function updateDisplay() {
+                let text = textInput.value || 'PixelBoard';
+                let fontSize = document.querySelector('.font-btn.active').dataset.size;
+                
+                fetch(`/updatetext?text=${encodeURIComponent(text)}&color=${activeColor}&font=${fontSize}`)
+                    .then(response => response.text())
+                    .then(data => {
+                        console.log('Success:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
             }
+            
+            // Submit button event listener
+            document.getElementById('submit-btn').addEventListener('click', updateDisplay);
+            
+            // Set active font button
+            document.querySelectorAll('.font-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // Allow Enter key to submit
+            textInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    updateDisplay();
+                }
+            });
+            
+            // Also update when font or color changes
+            document.querySelectorAll('.font-btn, .color-btn').forEach(btn => {
+                btn.addEventListener('click', updateDisplay);
+            });
         });
     </script>
 </body>
@@ -598,31 +572,36 @@ void setupTypePattern(AsyncWebServer* server) {
         request->send(200, "text/html", html);
     });
 
-    // Handler for updating the text
+    // API endpoint to update the text
     server->on("/updatetext", HTTP_GET, [](AsyncWebServerRequest *request) {
         if (request->hasParam("text") && request->hasParam("color") && request->hasParam("font")) {
-            String newText = request->getParam("text")->value();
+            String text = request->getParam("text")->value();
             String color = request->getParam("color")->value();
             String fontSize = request->getParam("font")->value();
             
+            Serial.printf("Updating text: %s, Color: %s, Font: %s\n", text.c_str(), color.c_str(), fontSize.c_str());
+            
             // Update text
-            currentText = newText;
+            currentText = text;
             
             // Update color
             if (color == "red") textColor = CRGB::Red;
             else if (color == "green") textColor = CRGB::Green;
             else if (color == "blue") textColor = CRGB::Blue;
             else if (color == "yellow") textColor = CRGB::Yellow;
-            else textColor = CRGB::White;
+            else if (color == "purple") textColor = CRGB::Purple;
+            else if (color == "cyan") textColor = CRGB::Cyan;
+            else textColor = CRGB::White; // Default to white
             
             // Update font size
             useLargeFont = (fontSize == "large");
             useMonoFont = (fontSize == "mono");
+            useTestFont = (fontSize == "test");
             
-            // Reset scroll position
-            scrollPosition = -16;
+            // Reset position for scrolling
+            // xPos = 16;
             
-            request->send(200, "text/plain", "Text updated");
+            request->send(200, "text/plain", "OK");
         } else {
             request->send(400, "text/plain", "Missing parameters");
         }

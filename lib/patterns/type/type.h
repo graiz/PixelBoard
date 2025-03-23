@@ -31,6 +31,9 @@ extern const GFXglyph FreeMono24pt7bGlyphs[] PROGMEM;
 extern const uint8_t FreeMono24pt7bBitmaps[] PROGMEM;
 extern const GFXfont FreeMono24pt7b PROGMEM;
 
+// Include the test font
+#include "font_test.h"
+
 // Function declarations for the type pattern
 void type(CRGB* leds);
 void setupTypePattern(AsyncWebServer* server);
