@@ -5,6 +5,8 @@
 #include <Preferences.h>
 #include <patterns.h>  
 #include "SPIFFS.h"
+#include <esp_sleep.h>
+#include <WiFi.h>
 
 #define DATA_PIN 26
 #define NUM_LEDS 256
@@ -64,6 +66,51 @@ void clearWiFiCredentials() {
 void setup() {
   Serial.begin(460800);
   
+  // Check wake-up reason
+  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+  
+  switch(wakeup_reason) {
+    case ESP_SLEEP_WAKEUP_TIMER:
+      Serial.println("Woke up from timer");
+      break;
+      
+    case ESP_SLEEP_WAKEUP_WIFI:
+      Serial.println("Woke up from WiFi event");
+      // No need to reconnect WiFi as we're using light sleep
+      break;
+      
+    case ESP_SLEEP_WAKEUP_UNDEFINED:
+    default:
+      Serial.println("Normal boot");
+      break;
+  }
+  
+  // Load preferences regardless of wake-up reason
+  loadPrefs();
+  
+  // Configure the LED strip
+  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS)
+         .setCorrection(TypicalLEDStrip);
+
+  // Start with display off
+  FastLED.setBrightness(0);
+  FastLED.show();
+
+  // Setup WiFi and server if this is a normal boot or we need to reconnect
+  if (wakeup_reason != ESP_SLEEP_WAKEUP_WIFI) {
+    wifiServerSetup();  // connect to WiFi, start server, etc.
+    nap(2000); // Wait for WiFi to stabilize
+  }
+
+  // Set normal brightness
+  FastLED.setBrightness(g_Brightness);
+
+  // Initialize SPIFFS
+  if(!SPIFFS.begin()){
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
+  
   // Check if button is pressed during boot
   pinMode(BUTTON_PIN, INPUT);
   if (digitalRead(BUTTON_PIN) == LOW) {
@@ -71,30 +118,6 @@ void setup() {
     if (digitalRead(BUTTON_PIN) == LOW) {
       clearWiFiCredentials();
     }
-  }
-  
-  loadPrefs();
-  
-  // 1) Configure the strip first
-  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS)
-         .setCorrection(TypicalLEDStrip);
-
-  // 2) Immediately turn brightness to 0 and show() to ensure it's off
-  FastLED.setBrightness(0);
-  FastLED.show();   // Now the strip is definitely off
-
-  // 3) Wait while you do WiFi
-  wifiServerSetup();  // connect to WiFi, start server, etc.
-
-  // 4) Possibly wait a moment if needed
-  nap(2000);
-
-  // 5) After WiFi is stable, set your normal brightness
-  FastLED.setBrightness(g_Brightness);
-
-  if(!SPIFFS.begin()){
-    Serial.println("SPIFFS Mount Failed");
-    return;
   }
 }
 

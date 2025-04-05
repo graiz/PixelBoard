@@ -10,6 +10,9 @@
 #include <led_display.h>
 #include <FastLED.h>
 
+// Global brightness variable from main.cpp
+extern int g_Brightness;
+
 // Forward declarations of helper functions
 void nap(int wait);
 

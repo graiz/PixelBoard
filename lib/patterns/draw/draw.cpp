@@ -255,6 +255,8 @@ void setupDrawPattern(AsyncWebServer* server) {
                         
                         // Sample the image at 16x16 resolution
                         const pixelSize = 10; // 160/16 = 10
+                        let pixelData = '';
+                        
                         for(let py = 0; py < 16; py++) {
                             for(let px = 0; px < 16; px++) {
                                 const imageData = ctx.getImageData(px * pixelSize + 5, py * pixelSize + 5, 1, 1).data;
@@ -262,13 +264,21 @@ void setupDrawPattern(AsyncWebServer* server) {
                                 const g = imageData[1];
                                 const b = imageData[2];
                                 
-                                // Update the grid
+                                // Add to pixel data directly from image data
+                                pixelData += (
+                                    r.toString(16).padStart(2, '0') +
+                                    g.toString(16).padStart(2, '0') +
+                                    b.toString(16).padStart(2, '0')
+                                );
+                                
+                                // Update the grid for preview
                                 const pixel = document.querySelector(`.pixel[data-x="${px}"][data-y="${py}"]`);
                                 pixel.style.backgroundColor = `rgb(${r},${g},${b})`;
                             }
                         }
-                        // Send all pixels at once
-                        sendFullImage();
+                        
+                        // Send the pixel data we just generated
+                        fetch('/drawimage?pixels=' + pixelData);
                     };
                     img.src = event.target.result;
                 };
@@ -283,12 +293,18 @@ void setupDrawPattern(AsyncWebServer* server) {
             for (let pixel of pixels) {
                 const style = getComputedStyle(pixel);
                 const rgb = style.backgroundColor.match(/\d+/g);
-                // Convert RGB to hex string
-                pixelData += (
-                    (parseInt(rgb[0]).toString(16).padStart(2, '0')) +
-                    (parseInt(rgb[1]).toString(16).padStart(2, '0')) +
-                    (parseInt(rgb[2]).toString(16).padStart(2, '0'))
-                );
+                // Ensure we have valid RGB values
+                if (rgb && rgb.length === 3) {
+                    const r = parseInt(rgb[0]);
+                    const g = parseInt(rgb[1]);
+                    const b = parseInt(rgb[2]);
+                    // Convert to hex and ensure 2 digits
+                    pixelData += (
+                        r.toString(16).padStart(2, '0') +
+                        g.toString(16).padStart(2, '0') +
+                        b.toString(16).padStart(2, '0')
+                    );
+                }
             }
             
             fetch('/drawimage?pixels=' + pixelData);
@@ -329,22 +345,35 @@ void setupDrawPattern(AsyncWebServer* server) {
     server->on("/drawimage", HTTP_GET, [](AsyncWebServerRequest *request) {
         if (request->hasParam("pixels")) {
             String pixelData = request->getParam("pixels")->value();
-            int index = 0;
+            Serial.printf("Received pixel data length: %d\n", pixelData.length());
             
-            // Process groups of 6 characters (RRGGBB)
-            for (int i = 0; i < pixelData.length(); i += 6) {
-                if (index >= NUM_LEDS) break;
-                
-                // Convert hex string to RGB values
-                uint32_t rgb = strtoul(pixelData.substring(i, i + 6).c_str(), NULL, 16);
-                uint8_t r = (rgb >> 16) & 0xFF;
-                uint8_t g = (rgb >> 8) & 0xFF;
-                uint8_t b = rgb & 0xFF;
-                
-                // Update both states and LEDs
-                pixelStates[index] = CRGB(r, g, b);
-                leds[index] = CRGB(r, g, b);
-                index++;
+            // Process pixels in 16x16 grid order
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    int pixelIndex = (y * 16 + x) * 6;  // Each pixel is 6 chars (RRGGBB)
+                    
+                    if (pixelIndex + 5 < pixelData.length()) {
+                        String hexColor = pixelData.substring(pixelIndex, pixelIndex + 6);
+                        // Convert hex string to RGB values
+                        uint32_t rgb = strtoul(hexColor.c_str(), NULL, 16);
+                        uint8_t r = (rgb >> 16) & 0xFF;
+                        uint8_t g = (rgb >> 8) & 0xFF;
+                        uint8_t b = rgb & 0xFF;
+                        
+                        // Debug print every 16th pixel (to avoid flooding serial)
+                        if ((x + y * 16) % 16 == 0) {
+                            Serial.printf("Pixel(%d,%d) Hex:%s RGB:(%d,%d,%d)\n", 
+                                x, y, hexColor.c_str(), r, g, b);
+                        }
+                        
+                        // Use XY mapping like the single pixel endpoint
+                        int ledIndex = XY(x, y);
+                        if (ledIndex >= 0 && ledIndex < NUM_LEDS) {
+                            pixelStates[ledIndex] = CRGB(r, g, b);
+                            leds[ledIndex] = CRGB(r, g, b);
+                        }
+                    }
+                }
             }
             
             FastLED.show();

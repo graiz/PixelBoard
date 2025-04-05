@@ -211,23 +211,16 @@ static const uint8_t font8x8[] PROGMEM = {
 static String currentText = "PixelBoard";
 static int scrollPosition = 0;
 static CRGB textColor = CRGB::White;
+static CRGB backgroundColor = CRGB::Black;  // Add background color variable
 static unsigned long lastUpdate = 0;
 static const int scrollDelay = 50;  // Delay between scroll steps in ms
-static bool useLargeFont = false;
 static bool useMonoFont = false;    // New variable for the FreeMono font
-static bool useTestFont = false;    // New variable for the test font
 
 // Helper function to get character index in font array
-int getCharIndex(char c, bool isLargeFont) {
-    if (useTestFont) {
-        // Test font handles its own character mapping
-        return 0;
-    } else if (useMonoFont) {
+int getCharIndex(char c) {
+    if (useMonoFont) {
         // FreeMono font handles its own character mapping
         return 0;
-    } else if (isLargeFont) {
-        // For 8x8 font, we can directly use ASCII value offset
-        return c;
     } else {
         // For 5x7 font
         // Check for valid characters
@@ -239,7 +232,7 @@ int getCharIndex(char c, bool isLargeFont) {
 }
 
 void drawChar(CRGB* leds, char c, int xOffset, int yOffset) {
-    int charIndex = getCharIndex(c, false);
+    int charIndex = getCharIndex(c);
     
     for (int x = 0; x < 5; x++) {
         if (xOffset + x < 0 || xOffset + x >= 16) continue;
@@ -256,7 +249,7 @@ void drawChar(CRGB* leds, char c, int xOffset, int yOffset) {
 }
 
 void drawCharLarge(CRGB* leds, char c, int xOffset, int yOffset) {
-    int charIndex = getCharIndex(c, true);
+    int charIndex = getCharIndex(c);
     
     for (int y = 0; y < 8; y++) {
         if (yOffset + y < 0 || yOffset + y >= 16) continue;
@@ -265,8 +258,8 @@ void drawCharLarge(CRGB* leds, char c, int xOffset, int yOffset) {
         for (int x = 0; x < 8; x++) {
             if (xOffset + x < 0 || xOffset + x >= 16) continue;
             
-            // Read bits from right to left to maintain correct orientation
-            if (row & (1 << (7 - x))) {
+            // Read bits from left to right to match font data orientation
+            if (row & (1 << x)) {
                 leds[XY(xOffset + x, yOffset + y)] = textColor;
             }
         }
@@ -364,18 +357,11 @@ void drawCharTest(CRGB* leds, char c, int xOffset, int yOffset, uint8_t size = 1
 }
 
 void type(CRGB* leds) {
-    // Clear the display
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    // Clear the display with background color instead of black
+    fill_solid(leds, NUM_LEDS, backgroundColor);
     
     // Calculate total width of text
-    int charWidth;
-    if (useTestFont) {
-        charWidth = 8; // Adjust based on your test font
-    } else if (useMonoFont) {
-        charWidth = 8; // Increased from 6 to give more space between characters
-    } else {
-        charWidth = useLargeFont ? 9 : 6; // 8 pixels + 1 space or 5 pixels + 1 space
-    }
+    int charWidth = useMonoFont ? 8 : 6; // 8 pixels for mono, 5 pixels + 1 space for small
     
     int totalWidth = currentText.length() * charWidth;
     
@@ -393,14 +379,10 @@ void type(CRGB* leds) {
     for (size_t i = 0; i < currentText.length(); i++) {
         int xPos = 16 - scrollPosition + (i * charWidth);
         if (xPos > -charWidth && xPos < 16) {
-            if (useTestFont) {
-                drawCharTest(leds, currentText[i], xPos, 4); // Draw using test font
-            } else if (useMonoFont) {
+            if (useMonoFont) {
                 drawCharMono(leds, currentText[i], xPos, 4); // Draw using FreeMono font
-            } else if (useLargeFont) {
-                drawCharLarge(leds, currentText[i], xPos, 4); // Center vertically for 8x8 font
             } else {
-                drawChar(leds, currentText[i], xPos, 4); // Center vertically for 5x7 font
+                drawChar(leds, currentText[i], xPos, 4); // Draw using 5x7 font
             }
         }
     }
@@ -412,118 +394,218 @@ void setupTypePattern(AsyncWebServer* server) {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PixelBoard Type</title>
+    <title>PixelBoard Text Display</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
-            text-align: center;
-            background-color: #f0f0f0;
-            color: #333;
+            padding: 0;
+            background-color: #282c34;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #fff;
+        .controls {
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .input-group {
+            width: 100%;
+            max-width: 400px;
         }
         input[type="text"] {
             width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 8px 15px;
+            background: #3b3f47;
+            border: 1px solid #61dafb;
+            border-radius: 6px;
+            color: white;
             font-size: 16px;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #61dafb;
+            box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
         }
         .color-selection, .font-selection {
-            margin: 15px 0;
             display: flex;
-            justify-content: center;
+            gap: 10px;
             flex-wrap: wrap;
+            justify-content: center;
         }
         .color-btn, .font-btn {
-            margin: 5px;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: bold;
-        }
-        .font-btn.active, .color-btn.active {
-            transform: scale(1.1);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        .header {
-            margin-bottom: 20px;
-        }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-        .status {
-            color: #7f8c8d;
-            font-weight: bold;
-        }
-        button[type="submit"] {
-            background: #3498db;
+            background-color: #444;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 14px;
             cursor: pointer;
-            margin-top: 15px;
-            font-size: 16px;
+            transition: all 0.2s;
+            box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
         }
-        button[type="submit"]:hover {
-            background: #2980b9;
+        .color-btn:hover, .font-btn:hover {
+            background-color: #555;
+        }
+        .color-btn:active, .font-btn:active {
+            background-color: #555;
+            box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
+            transform: translateY(2px);
+        }
+        .color-btn.active, .font-btn.active {
+            background-color: #61dafb;
+            color: #282c34;
+        }
+        .preview-container {
+            margin: 10px;
+            display: flex;
+            justify-content: center;
+            flex: 1;
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            padding: 8px;
+            background: #3b3f47;
+            border-radius: 10px;
+            aspect-ratio: 1;
+            width: min(90%, 400px);
+            max-height: 80vh;
+        }
+        .preview-pixel {
+            aspect-ratio: 1;
+            background: #282c34;
+            border-radius: 2px;
+            transition: background-color 0.3s ease;
+        }
+        .color-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        .color-section-label {
+            font-size: 14px;
+            color: #aaa;
+        }
+        
+        @media screen and (max-width: 600px) {
+            .controls {
+                padding: 10px;
+            }
+            .color-btn, .font-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>PixelBoard Text Display</h1>
-            <div class="status">Enter text to display</div>
+    <div class="preview-container">
+        <div class="preview-grid" id="previewGrid"></div>
+    </div>
+    
+    <div class="controls">
+        <div class="input-group">
+            <input type="text" id="text-input" placeholder="Enter text to display" value="PixelBoard">
         </div>
         
-        <input type="text" id="text-input" placeholder="Enter text to display" value="PixelBoard">
-        
-        <div class="color-selection">
-            <button class="color-btn active" style="background-color: #FFFFFF;" data-color="white"></button>
-            <button class="color-btn" style="background-color: #FF0000;" data-color="red"></button>
-            <button class="color-btn" style="background-color: #00FF00;" data-color="green"></button>
-            <button class="color-btn" style="background-color: #0000FF;" data-color="blue"></button>
-            <button class="color-btn" style="background-color: #FFFF00;" data-color="yellow"></button>
-            <button class="color-btn" style="background-color: #FF00FF;" data-color="purple"></button>
-            <button class="color-btn" style="background-color: #00FFFF;" data-color="cyan"></button>
+        <div class="color-section">
+            <div class="color-section-label">Text Color</div>
+            <div class="color-selection" id="textColors">
+                <button class="color-btn active" style="background-color: #FFFFFF;" data-color="white">White</button>
+                <button class="color-btn" style="background-color: #FF0000;" data-color="red">Red</button>
+                <button class="color-btn" style="background-color: #00FF00;" data-color="green">Green</button>
+                <button class="color-btn" style="background-color: #0000FF;" data-color="blue">Blue</button>
+                <button class="color-btn" style="background-color: #FFFF00;" data-color="yellow">Yellow</button>
+                <button class="color-btn" style="background-color: #FF00FF;" data-color="purple">Purple</button>
+                <button class="color-btn" style="background-color: #00FFFF;" data-color="cyan">Cyan</button>
+            </div>
+        </div>
+
+        <div class="color-section">
+            <div class="color-section-label">Background Color</div>
+            <div class="color-selection" id="bgColors">
+                <button class="color-btn active" style="background-color: #000000;" data-color="black">Black</button>
+                <button class="color-btn" style="background-color: #FF0000;" data-color="red">Red</button>
+                <button class="color-btn" style="background-color: #00FF00;" data-color="green">Green</button>
+                <button class="color-btn" style="background-color: #0000FF;" data-color="blue">Blue</button>
+                <button class="color-btn" style="background-color: #FFFF00;" data-color="yellow">Yellow</button>
+                <button class="color-btn" style="background-color: #FF00FF;" data-color="purple">Purple</button>
+                <button class="color-btn" style="background-color: #00FFFF;" data-color="cyan">Cyan</button>
+            </div>
         </div>
         
         <div class="font-selection">
-            <button class="font-btn active" data-size="small">Small</button>
-            <button class="font-btn" data-size="large">Large</button>
-            <button class="font-btn" data-size="mono">Mono</button>
-            <button class="font-btn" data-size="test">Test Font</button>
+            <button class="font-btn active" data-size="small">Small Font</button>
+            <button class="font-btn" data-size="mono">Mono Font</button>
         </div>
-        
-        <button type="submit" id="submit-btn">Update Display</button>
     </div>
 
     <script>
+        let previewUpdateInterval;
+        
+        // Create preview grid
+        function createPreviewGrid() {
+            const grid = document.getElementById('previewGrid');
+            for (let i = 0; i < 256; i++) {
+                const pixel = document.createElement('div');
+                pixel.className = 'preview-pixel';
+                pixel.id = 'pixel-' + i;
+                grid.appendChild(pixel);
+            }
+        }
+        
+        // Update the preview grid
+        function updatePreview() {
+            fetch('/pixelStatus')
+                .then(response => response.arrayBuffer())
+                .then(buffer => {
+                    const pixels = new Uint8Array(buffer);
+                    for (let i = 0; i < 256; i++) {
+                        const baseIndex = i * 3;
+                        const r = pixels[baseIndex];
+                        const g = pixels[baseIndex + 1];
+                        const b = pixels[baseIndex + 2];
+                        
+                        const pixelElement = document.getElementById('pixel-' + i);
+                        if (pixelElement) {
+                            pixelElement.style.backgroundColor = `rgb(${r},${g},${b})`;
+                        }
+                    }
+                })
+                .catch(error => console.error('Error updating preview:', error));
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
-            let activeColor = 'white';
+            let activeTextColor = 'white';
+            let activeBgColor = 'black';
             let textInput = document.getElementById('text-input');
             
-            // Set active color button
-            document.querySelectorAll('.color-btn').forEach(btn => {
+            // Set active color button for text colors
+            document.querySelectorAll('#textColors .color-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('#textColors .color-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
-                    activeColor = this.dataset.color;
+                    activeTextColor = this.dataset.color;
+                    updateDisplay();
+                });
+            });
+
+            // Set active color button for background colors
+            document.querySelectorAll('#bgColors .color-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('#bgColors .color-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    activeBgColor = this.dataset.color;
+                    updateDisplay();
                 });
             });
             
@@ -532,24 +614,17 @@ void setupTypePattern(AsyncWebServer* server) {
                 let text = textInput.value || 'PixelBoard';
                 let fontSize = document.querySelector('.font-btn.active').dataset.size;
                 
-                fetch(`/updatetext?text=${encodeURIComponent(text)}&color=${activeColor}&font=${fontSize}`)
+                fetch(`/updatetext?text=${encodeURIComponent(text)}&textColor=${activeTextColor}&bgColor=${activeBgColor}&font=${fontSize}`)
                     .then(response => response.text())
-                    .then(data => {
-                        console.log('Success:', data);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                    });
+                    .catch(error => console.error('Error:', error));
             }
-            
-            // Submit button event listener
-            document.getElementById('submit-btn').addEventListener('click', updateDisplay);
             
             // Set active font button
             document.querySelectorAll('.font-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
+                    updateDisplay();
                 });
             });
             
@@ -560,10 +635,20 @@ void setupTypePattern(AsyncWebServer* server) {
                 }
             });
             
-            // Also update when font or color changes
-            document.querySelectorAll('.font-btn, .color-btn').forEach(btn => {
-                btn.addEventListener('click', updateDisplay);
-            });
+            // Update when text input changes
+            textInput.addEventListener('input', updateDisplay);
+            
+            // Initialize
+            createPreviewGrid();
+            updatePreview();
+            previewUpdateInterval = setInterval(updatePreview, 100);
+        });
+        
+        // Clean up
+        window.addEventListener('unload', function() {
+            if (previewUpdateInterval) {
+                clearInterval(previewUpdateInterval);
+            }
         });
     </script>
 </body>
@@ -574,32 +659,39 @@ void setupTypePattern(AsyncWebServer* server) {
 
     // API endpoint to update the text
     server->on("/updatetext", HTTP_GET, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("text") && request->hasParam("color") && request->hasParam("font")) {
+        if (request->hasParam("text") && request->hasParam("textColor") && request->hasParam("bgColor") && request->hasParam("font")) {
             String text = request->getParam("text")->value();
-            String color = request->getParam("color")->value();
+            String textColorStr = request->getParam("textColor")->value();
+            String bgColorStr = request->getParam("bgColor")->value();
             String fontSize = request->getParam("font")->value();
             
-            Serial.printf("Updating text: %s, Color: %s, Font: %s\n", text.c_str(), color.c_str(), fontSize.c_str());
+            Serial.printf("Updating text: %s, Text Color: %s, Background Color: %s, Font: %s\n", 
+                         text.c_str(), textColorStr.c_str(), bgColorStr.c_str(), fontSize.c_str());
             
             // Update text
             currentText = text;
             
-            // Update color
-            if (color == "red") textColor = CRGB::Red;
-            else if (color == "green") textColor = CRGB::Green;
-            else if (color == "blue") textColor = CRGB::Blue;
-            else if (color == "yellow") textColor = CRGB::Yellow;
-            else if (color == "purple") textColor = CRGB::Purple;
-            else if (color == "cyan") textColor = CRGB::Cyan;
+            // Update text color
+            if (textColorStr == "red") textColor = CRGB::Red;
+            else if (textColorStr == "green") textColor = CRGB::Green;
+            else if (textColorStr == "blue") textColor = CRGB::Blue;
+            else if (textColorStr == "yellow") textColor = CRGB::Yellow;
+            else if (textColorStr == "purple") textColor = CRGB::Purple;
+            else if (textColorStr == "cyan") textColor = CRGB::Cyan;
             else textColor = CRGB::White; // Default to white
+
+            // Update background color
+            if (bgColorStr == "red") backgroundColor = CRGB::Red;
+            else if (bgColorStr == "green") backgroundColor = CRGB::Green;
+            else if (bgColorStr == "blue") backgroundColor = CRGB::Blue;
+            else if (bgColorStr == "yellow") backgroundColor = CRGB::Yellow;
+            else if (bgColorStr == "purple") backgroundColor = CRGB::Purple;
+            else if (bgColorStr == "cyan") backgroundColor = CRGB::Cyan;
+            else if (bgColorStr == "white") backgroundColor = CRGB::White;
+            else backgroundColor = CRGB::Black; // Default to black
             
             // Update font size
-            useLargeFont = (fontSize == "large");
             useMonoFont = (fontSize == "mono");
-            useTestFont = (fontSize == "test");
-            
-            // Reset position for scrolling
-            // xPos = 16;
             
             request->send(200, "text/plain", "OK");
         } else {

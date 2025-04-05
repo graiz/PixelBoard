@@ -7,6 +7,7 @@
 #include "type/type.h"
 #include "snake/snake.h"
 #include "tetris/tetris.h"
+#include "clock/clock.h"  // Add new clock pattern header
 
 // Include simple patterns directly
 #include "twinkle.cpp"
@@ -35,10 +36,11 @@ void sleepLED(CRGB* leds);
 void swirl(CRGB* leds);
 void meteorRain(CRGB* leds);
 void colorWipe(CRGB* leds);
-void clockCountdown(CRGB* leds);
+void clockCountdown(CRGB* leds);  // Keep declaration
 void dvdBounce(CRGB* leds);
 void beachBall(CRGB* leds);
 void randomPattern(CRGB* leds);
+void sparkler(CRGB* leds);  // New sparkler pattern
 
 // Provide the actual array definition
 Pattern g_patternList[] = {
@@ -62,13 +64,14 @@ Pattern g_patternList[] = {
     { "Game of Life",      meteorRain },
     { "Color Wipe",        colorWipe },
     { "Beach Ball",        beachBall },
-    { "Clock Countdown",   clockCountdown },
+    { "Clock Countdown",   clockCountdown },  // Keep pattern entry
     { "Draw",              draw },
     { "Video",             video },
     { "Type",              type },
     { "Random",            randomPattern },
     { "Snake Game",         snake },
-    { "Tetris Game",       tetris }
+    { "Tetris Game",       tetris },
+    { "Sparkler",          sparkler }  // Replace spirograph with sparkler
 };
 
 // And the size of that array
@@ -87,8 +90,37 @@ void nap(int wait){
    FastLED.delay(Delay);
 }
 
-void sleepLED(CRGB* leds){
-  delay(10000);
+void sleepLED(CRGB* leds) {
+    // Turn off all LEDs
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
+    
+    // Set brightness to minimum
+    FastLED.setBrightness(0);
+    FastLED.show();
+    
+    // Enter low power mode
+    delay(100); // Short delay to ensure display is off
+    
+    // Keep WiFi on but in modem sleep mode
+    WiFi.setSleep(true);
+    
+    // Configure light sleep wake-up sources
+    esp_sleep_enable_timer_wakeup(600 * 1000000); // 10 minutes failsafe timer
+    esp_sleep_enable_wifi_wakeup();  // Enable wake on WiFi activity
+    
+    // Disable Bluetooth for power saving
+    btStop();
+    
+    // Enter light sleep (maintains WiFi connection)
+    esp_light_sleep_start();
+    
+    // After wake-up:
+    WiFi.setSleep(false); // Return WiFi to normal mode
+    
+    // Restore normal brightness
+    FastLED.setBrightness(g_Brightness);
+    FastLED.show();
 }
 
 
@@ -449,86 +481,6 @@ void colorWipe(CRGB* leds) {
   }
 }
 
-
-///////////////////////////////////////////////////////////////////////////
-// ClockCountdown
-// A "clock face" fills up over 60 seconds. 
-// Each second, an additional 6 degrees of the circle is colored.
-// After 60 seconds, the whole face is filled, then it resets to empty.
-///////////////////////////////////////////////////////////////////////////
-void clockCountdown(CRGB* leds) 
-{
-  // We'll keep track of how many seconds have passed in this countdown.
-  static uint8_t secondCount = 0;
-  static uint8_t minuteCount = 0;
-  static bool firstTime = true;
-  const uint8_t totalMinutes = 25; // Total timer duration in minutes
-
-  // If it's our first time running, set secondCount and minuteCount to 0.
-  if(firstTime) {
-    firstTime = false;
-    secondCount = 0;
-    minuteCount = 0;
-  }
-
-  // For each pixel, decide if its angle is within the "wedge" of the current secondCount or minuteCount.
-  // (8,8) is the center of a 16x16 matrix.
-  for(uint8_t y = 0; y < 16; y++) {
-    for(uint8_t x = 0; x < 16; x++) {
-      int16_t dx = x - 8; 
-      int16_t dy = y - 8; 
-      
-      // Calculate angle in degrees [0..360)
-      // Use atan2(dy,dx) => range [-π, +π], convert to degrees
-      float angle = atan2f((float)dy, (float)dx) * (180.0f / 3.14159f);
-      if(angle < 0) {
-        angle += 360.0f;  // shift to [0..360)
-      }
-      
-      // The timer hand extends from 0 degrees up to (secondCount * 6) degrees
-      // Because 60 seconds * 6 deg = 360 deg.
-      float timerCutoff = (float)secondCount * 6.0f;
-
-      // The minute hand extends from 0 degrees up to (minuteCount * 6) degrees
-      // Because 60 minutes * 6 deg = 360 deg.
-      float minuteCutoff = (float)minuteCount * 6.0f;
-
-      if(angle <= timerCutoff) {
-        // Color the "filled" portion for the timer hand. Choose any color you like:
-        // For instance, a rainbow wedge:
-        uint8_t hue = map(angle, 0, 360, 0, 255); // Map angle to hue
-        leds[ XY(x, y) ] = CHSV(hue, 255, 255);
-      } else if(angle <= minuteCutoff) {
-        // Color the "filled" portion for the minute hand. Choose any color you like:
-        leds[ XY(x, y) ] = CRGB::Blue;
-      } else {
-        // Outside the filled wedge, paint black (off).
-        leds[ XY(x, y) ] = CRGB::Black;
-      }
-    }
-  }
-
-  // Show the updated frame
-  FastLED.show();
-
-  // Short delay each frame
-  nap(20);  
-
-  // Increase secondCount once every second
-  EVERY_N_SECONDS(1) {
-    secondCount++;
-    // After 60 seconds, reset secondCount and increment minuteCount
-    if(secondCount >= 60) {
-      secondCount = 0;
-      minuteCount++;
-      // After totalMinutes, reset minuteCount
-      if(minuteCount >= totalMinutes) {
-        minuteCount = 0;
-      }
-    }
-  }
-}
-
 // Random pattern that changes every 1 minute
 void randomPattern(CRGB* leds) {
   static unsigned long lastPatternChange = 0;
@@ -575,4 +527,105 @@ void randomPattern(CRGB* leds) {
   if (currentPatternIndex >= 0 && currentPatternIndex < PATTERN_COUNT) {
     g_patternList[currentPatternIndex].func(leds);
   }
+}
+
+void sparkler(CRGB* leds) {
+    static float originX = 8.0;
+    static float originY = 8.0;
+    static float moveAngle = 0;
+    
+    // Fade existing pixels for trail effect
+    fadeToBlackBy(leds, NUM_LEDS, 60);
+    
+    // Move origin point in a slow circular pattern
+    float moveRadius = 4.0;
+    float targetX = 8 + cos(moveAngle) * moveRadius;
+    float targetY = 8 + sin(moveAngle) * moveRadius;
+    
+    // Smooth origin movement
+    originX += (targetX - originX) * 0.01;
+    originY += (targetY - originY) * 0.01;
+    moveAngle += 0.005 * (g_Speed / 128.0);
+    
+    // Generate new sparks each frame
+    uint8_t numNewSparks = random8(3, 8);  // Random number of new sparks per frame
+    
+    // Static array to store active sparks
+    static struct {
+        float x;
+        float y;
+        float velX;
+        float velY;
+        uint8_t hue;
+        uint8_t life;
+        bool active;
+    } sparks[50];  // Maximum 50 active sparks
+    
+    // Update existing sparks
+    for (int i = 0; i < 50; i++) {
+        if (sparks[i].active) {
+            // Update position based on velocity
+            sparks[i].x += sparks[i].velX;
+            sparks[i].y += sparks[i].velY;
+            
+            // Decrease life
+            if (sparks[i].life > 0) sparks[i].life--;
+            else sparks[i].active = false;
+            
+            // Check if spark is still in bounds
+            if (sparks[i].x < 0 || sparks[i].x >= 16 || sparks[i].y < 0 || sparks[i].y >= 16) {
+                sparks[i].active = false;
+                continue;
+            }
+            
+            // Draw the spark
+            uint8_t brightness = map(sparks[i].life, 0, 255, 0, 255);
+            leds[XY((uint8_t)sparks[i].x, (uint8_t)sparks[i].y)] += CHSV(sparks[i].hue, 255, brightness);
+            
+            // Add subtle glow to neighbors if spark is bright enough
+            if (brightness > 127) {
+                for (int8_t dx = -1; dx <= 1; dx++) {
+                    for (int8_t dy = -1; dy <= 1; dy++) {
+                        if (dx == 0 && dy == 0) continue;
+                        
+                        int8_t newX = (uint8_t)sparks[i].x + dx;
+                        int8_t newY = (uint8_t)sparks[i].y + dy;
+                        
+                        if (newX >= 0 && newX < 16 && newY >= 0 && newY < 16) {
+                            leds[XY(newX, newY)] += CHSV(sparks[i].hue, 255, brightness/3);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Create new sparks
+    for (int i = 0; i < numNewSparks; i++) {
+        // Find an inactive spark slot
+        for (int j = 0; j < 50; j++) {
+            if (!sparks[j].active) {
+                // Initialize new spark
+                sparks[j].x = originX;
+                sparks[j].y = originY;
+                
+                // Random angle and speed
+                float angle = random(256) * (TWO_PI / 256.0);  // Random angle in radians
+                float speed = 0.2 + (random(100) / 50.0);      // Random speed between 0.2 and 2.2
+                
+                // Calculate velocities
+                sparks[j].velX = cos(angle) * speed;
+                sparks[j].velY = sin(angle) * speed;
+                
+                // Random color and life
+                sparks[j].hue = random8();
+                sparks[j].life = random8(100, 255);
+                sparks[j].active = true;
+                break;
+            }
+        }
+    }
+    
+    FastLED.show();
+    nap(5);
 }

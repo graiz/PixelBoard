@@ -18,6 +18,7 @@
 #include "video/video.h"       // For setupVideoPlayer
 #include "type/type.h"         // For setupTypePattern
 #include "snake/snake.h"       // For setupSnakePattern
+#include "clock/clock.h"       // For setupClockPattern
 #include "SPIFFS.h"
 
 // -------------------------------------------------------------------
@@ -65,10 +66,11 @@ static void startServer();
 
 // Forward declarations for pattern setup functions
 void setupDrawPattern(AsyncWebServer* server);
-void setupVideoPattern(AsyncWebServer* server);
+void setupVideoPlayer(AsyncWebServer* server);
 void setupTypePattern(AsyncWebServer* server);
 void setupSnakePattern(AsyncWebServer* server);
 void setupTetrisPattern(AsyncWebServer* server);  // Add Tetris setup declaration
+void setupClockPattern(AsyncWebServer* server);      // Add Clock setup declaration
 
 // -------------------------------------------------------------------
 // Load Wi-Fi credentials from NVS
@@ -611,6 +613,11 @@ static void setupHomePage() {
                 const iframe = document.createElement('iframe');
                 iframe.src = '/tetris';
                 previewPanel.appendChild(iframe);
+            } else if (selectedPattern.toLowerCase().includes('clock')) {
+                // Load clock game interface
+                const iframe = document.createElement('iframe');
+                iframe.src = '/clock';
+                previewPanel.appendChild(iframe);
             } else {
                 // Start preview updates for regular patterns
                 startPreviewUpdates();
@@ -625,7 +632,8 @@ static void setupHomePage() {
                         !selectedPattern.toLowerCase().includes('text') &&
                         !selectedPattern.toLowerCase().includes('type') &&
                         !selectedPattern.toLowerCase().includes('snake') &&
-                        !selectedPattern.toLowerCase().includes('tetris')) {
+                        !selectedPattern.toLowerCase().includes('tetris') &&
+                        !selectedPattern.toLowerCase().includes('clock')) {
                         // Wait 1 second before refreshing preview to allow pattern to initialize
                         setTimeout(() => {
                             refreshPreview();
@@ -758,8 +766,7 @@ static void startServer() {
   // Set up API endpoints for each pattern with web UI
   setupDrawPattern(&server);
   
-  // Comment out undefined functions that are causing linker errors
-  // setupVideoPattern(&server);
+  setupVideoPlayer(&server);  // Uncommented and renamed
   
   setupTypePattern(&server);
   
@@ -768,6 +775,9 @@ static void startServer() {
   
   // Setup Tetris pattern
   setupTetrisPattern(&server);
+
+  // Setup Clock pattern
+  setupClockPattern(&server);
   
   // Serve the libgif.js file from SPIFFS
   server.begin();
@@ -789,12 +799,12 @@ void wifiServerSetup() {
     setupPatternHandler();
     setupBrightnessHandler();
     setupSpeedHandler();
-    // Comment out the undefined function that's causing linker errors
-    // setupVideoPattern(&server);
+    setupVideoPlayer(&server);  // Uncommented and renamed
     setupDrawPattern(&server);
     setupTypePattern(&server);
     setupSnakePattern(&server);
     setupTetrisPattern(&server);  // Add Tetris setup
+    setupClockPattern(&server);   // Add Clock setup
     startServer();
 
     // Debug: List files in SPIFFS
