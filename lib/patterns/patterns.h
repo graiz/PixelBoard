@@ -23,6 +23,7 @@ void nap(int wait);
 struct Pattern {
     const char* name;
     void (*func)(CRGB* leds);
+    const char* icon;  // UTF-8 emoji or character icon
 };
 
 // 2) Declare an array of Pattern objects

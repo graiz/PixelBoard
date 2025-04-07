@@ -6,9 +6,7 @@
 #define GRID_SIZE 16
 #define MAX_SNAKE_LENGTH 256 // Maximum possible length (16x16 grid)
 #define INITIAL_SNAKE_LENGTH 3
-#define GAME_SPEED_INIT 200 // Milliseconds between moves (lower = faster)
-#define GAME_SPEED_MIN 50   // Minimum delay (maximum speed)
-#define SPEED_INCREASE 5    // How much to increase speed after eating food
+#define GAME_SPEED 150      // Movement speed in milliseconds (constant)
 
 // Game states
 enum GameState {
@@ -32,6 +30,7 @@ static int score;
 static CRGB snakeColor = CRGB::Green;
 static CRGB foodColor = CRGB::Red;
 static CRGB headColor = CRGB::Yellow;
+static unsigned long gameOverTime; // Time when game ended for auto-restart
 
 // AI mode flag
 static bool aiMode = false;
@@ -80,7 +79,7 @@ void initSnakeGame() {
   
   // Initialize timers and game state
   lastMoveTime = millis();
-  gameSpeed = GAME_SPEED_INIT;
+  gameSpeed = GAME_SPEED;
   gameState = PLAYING;
   score = 0;
   
@@ -148,113 +147,118 @@ Direction getAIMove() {
 
 // Update game state
 void updateSnakeGame() {
-  if (gameState == WAITING || gameState == GAME_OVER) {
-    // In WAITING or GAME_OVER state, wait for user to start/restart
+  if (gameState == WAITING) {
+    // In WAITING state, wait for user to start
+    return;
+  }
+  
+  if (gameState == GAME_OVER) {
+    // If in AI mode and game over, auto-restart after 5 seconds
+    if (aiMode && (millis() - gameOverTime >= 5000)) {
+      g_snakeInitialized = false;
+      initSnakeGame();
+      return;
+    }
     return;
   }
   
   unsigned long currentTime = millis();
-  if (currentTime - lastMoveTime < gameSpeed) {
-    // Not time to move yet
-    return;
-  }
   
-  // Update the last move time
-  lastMoveTime = currentTime;
-  
-  // If AI mode is active, get the AI's next move
-  if (aiMode) {
-    nextDirection = getAIMove();
-  }
-  
-  // Apply the nextDirection
-  direction = nextDirection;
-  
-  // Calculate new head position
-  int newHeadX = snakeX[0];
-  int newHeadY = snakeY[0];
-  
-  // Update head position based on direction
-  switch (direction) {
-    case UP:
-      newHeadY--;
-      break;
-    case DOWN:
-      newHeadY++;
-      break;
-    case LEFT:
-      newHeadX--;
-      break;
-    case RIGHT:
-      newHeadX++;
-      break;
-  }
-  
-  // Debug info
-  Serial.printf("Snake moving: Head from (%d,%d) to (%d,%d), Dir: %d\n", 
-                snakeX[0], snakeY[0], newHeadX, newHeadY, (int)direction);
-  
-  // Check for wall collision
-  if (newHeadX < 0 || newHeadX >= GRID_SIZE ||
-      newHeadY < 0 || newHeadY >= GRID_SIZE) {
-    Serial.println("Game over: Wall collision!");
-    gameState = GAME_OVER;
-    return;
-  }
-  
-  // Check for collision with self
-  for (int i = 0; i < snakeLength; i++) {
-    if (newHeadX == snakeX[i] && newHeadY == snakeY[i]) {
-      Serial.println("Game over: Self collision!");
-      gameState = GAME_OVER;
-      return;
+  // Remove the early return to ensure more responsive updates
+  if (currentTime - lastMoveTime >= gameSpeed) {
+    // Update the last move time
+    lastMoveTime = currentTime;
+    
+    // If AI mode is active, get the AI's next move
+    if (aiMode) {
+      nextDirection = getAIMove();
     }
-  }
-  
-  // Check if food eaten
-  bool foodEaten = (newHeadX == foodX && newHeadY == foodY);
-  
-  // Move the snake: shift all segments one position back
-  for (int i = snakeLength - 1; i > 0; i--) {
-    snakeX[i] = snakeX[i - 1];
-    snakeY[i] = snakeY[i - 1];
-  }
-  
-  // Update head position
-  snakeX[0] = newHeadX;
-  snakeY[0] = newHeadY;
-  
-  // If food eaten, grow snake and place new food
-  if (foodEaten) {
-    Serial.println("Food eaten! Snake growing.");
     
-    // Properly initialize the new tail segment
-    // Copy the position of the current tail to the new segment
-    snakeX[snakeLength] = snakeX[snakeLength-1];
-    snakeY[snakeLength] = snakeY[snakeLength-1];
+    // Apply the nextDirection immediately for more responsive controls
+    direction = nextDirection;
     
-    // Now it's safe to increase the length
-    snakeLength++;
+    // Calculate new head position
+    int newHeadX = snakeX[0];
+    int newHeadY = snakeY[0];
     
-    if (snakeLength >= MAX_SNAKE_LENGTH) {
-      // Snake reached maximum size - you win!
-      Serial.println("You win! Maximum snake length reached.");
+    // Update head position based on direction
+    switch (direction) {
+      case UP:
+        newHeadY--;
+        break;
+      case DOWN:
+        newHeadY++;
+        break;
+      case LEFT:
+        newHeadX--;
+        break;
+      case RIGHT:
+        newHeadX++;
+        break;
+    }
+    
+    // Debug info
+    Serial.printf("Snake moving: Head from (%d,%d) to (%d,%d), Dir: %d\n", 
+                  snakeX[0], snakeY[0], newHeadX, newHeadY, (int)direction);
+    
+    // Check for wall collision
+    if (newHeadX < 0 || newHeadX >= GRID_SIZE ||
+        newHeadY < 0 || newHeadY >= GRID_SIZE) {
+      Serial.println("Game over: Wall collision!");
       gameState = GAME_OVER;
+      gameOverTime = millis(); // Record when game ended
       return;
     }
     
-    // Update score
-    score++;
-    
-    // Speed up the game
-    if (gameSpeed > GAME_SPEED_MIN) {
-      gameSpeed -= SPEED_INCREASE;
-      Serial.printf("Speed increased. New game speed: %lu\n", gameSpeed);
+    // Check for collision with self
+    for (int i = 0; i < snakeLength; i++) {
+      if (newHeadX == snakeX[i] && newHeadY == snakeY[i]) {
+        Serial.println("Game over: Self collision!");
+        gameState = GAME_OVER;
+        gameOverTime = millis(); // Record when game ended
+        return;
+      }
     }
     
-    // Place new food
-    placeFood();
-    Serial.printf("New food placed at (%d,%d)\n", foodX, foodY);
+    // Check if food eaten
+    bool foodEaten = (newHeadX == foodX && newHeadY == foodY);
+    
+    // Move the snake: shift all segments one position back
+    for (int i = snakeLength - 1; i > 0; i--) {
+      snakeX[i] = snakeX[i - 1];
+      snakeY[i] = snakeY[i - 1];
+    }
+    
+    // Update head position
+    snakeX[0] = newHeadX;
+    snakeY[0] = newHeadY;
+    
+    // If food eaten, grow snake and place new food
+    if (foodEaten) {
+      Serial.println("Food eaten! Snake growing.");
+      
+      // Properly initialize the new tail segment
+      // Copy the position of the current tail to the new segment
+      snakeX[snakeLength] = snakeX[snakeLength-1];
+      snakeY[snakeLength] = snakeY[snakeLength-1];
+      
+      // Now it's safe to increase the length
+      snakeLength++;
+      
+      if (snakeLength >= MAX_SNAKE_LENGTH) {
+        // Snake reached maximum size - you win!
+        Serial.println("You win! Maximum snake length reached.");
+        gameState = GAME_OVER;
+        return;
+      }
+      
+      // Update score
+      score++;
+      
+      // Place new food
+      placeFood();
+      Serial.printf("New food placed at (%d,%d)\n", foodX, foodY);
+    }
   }
 }
 
@@ -343,191 +347,7 @@ void setupSnakePattern(AsyncWebServer* server) {
 <head>
     <title>PixelBoard Snake Game</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #282c34;
-            color: #ffffff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden; /* Prevent scrolling in iframe */
-        }
-        .header {
-            background: #3b3f47;
-            padding: 10px 15px;
-            border-bottom: 1px solid #61dafb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        h1 {
-            margin: 0;
-            font-size: 1.4rem;
-        }
-        .game-info {
-            background: #3b3f47;
-            padding: 8px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .score {
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-        .controls {
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .d-pad {
-            display: grid;
-            grid-template-columns: repeat(3, 50px);
-            grid-template-rows: repeat(3, 50px);
-            gap: 5px;
-        }
-        .d-btn {
-            background-color: #444;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            transition: all 0.2s;
-            box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        }
-        .d-btn:active {
-            background-color: #555;
-            box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
-            transform: translateY(2px);
-        }
-        .d-btn.up { grid-column: 2; grid-row: 1; }
-        .d-btn.left { grid-column: 1; grid-row: 2; }
-        .d-btn.right { grid-column: 3; grid-row: 2; }
-        .d-btn.down { grid-column: 2; grid-row: 3; }
-        .center {
-            grid-column: 2;
-            grid-row: 2;
-            background-color: #333;
-            border-radius: 6px;
-        }
-        .key-icon {
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 18px;
-            padding: 4px 8px;
-            background-color: #222;
-            border-radius: 4px;
-            border: 1px solid #555;
-            box-shadow: inset 0 0 3px rgba(0,0,0,0.5);
-        }
-        .game-btn {
-            background-color: #444;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
-            white-space: nowrap;
-        }
-        .game-btn:hover {
-            background-color: #555;
-        }
-        .game-btn:active {
-            background-color: #555;
-            box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
-            transform: translateY(2px);
-        }
-        .ai-btn {
-            background-color: #444;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
-            white-space: nowrap;
-        }
-        .ai-btn.active {
-            background-color: #61dafb;
-            color: #282c34;
-        }
-        .preview-container {
-            margin: 10px;
-            display: flex;
-            justify-content: center;
-            flex: 1;
-        }
-        .preview-grid {
-            display: grid;
-            grid-template-columns: repeat(16, 1fr);
-            gap: 2px;
-            padding: 8px;
-            background: #3b3f47;
-            border-radius: 10px;
-            aspect-ratio: 1;
-            width: min(90%, 400px);
-            max-height: 80vh;
-        }
-        .preview-pixel {
-            aspect-ratio: 1;
-            background: #282c34;
-            border-radius: 2px;
-            transition: background-color 0.3s ease;
-        }
-        
-        @media screen and (max-width: 600px) {
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-                padding: 5px;
-            }
-            .header-left, .header-right {
-                justify-content: center;
-            }
-            h1 {
-                font-size: 1.2rem;
-                text-align: center;
-            }
-            .game-btn, .ai-btn {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-            .d-pad {
-                grid-template-columns: repeat(3, 40px);
-                grid-template-rows: repeat(3, 40px);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="header">
@@ -537,9 +357,9 @@ void setupSnakePattern(AsyncWebServer* server) {
             <div class="status" id="gameStatus">Press Start to Play</div>
         </div>
         <div class="header-right">
-            <button class="game-btn" id="btnStart">Start Game</button>
-            <button class="game-btn" id="btnRestart">Restart</button>
-            <button class="ai-btn" id="btnAI">Enable AI</button>
+            <button class="d-btn" id="btnStart">Start Game</button>
+            <button class="d-btn" id="btnRestart">Restart</button>
+            <button class="d-btn" id="btnAI">Enable AI</button>
         </div>
     </div>
     
@@ -560,12 +380,11 @@ void setupSnakePattern(AsyncWebServer* server) {
     <div style="text-align: center; margin: 5px; font-size: 0.8rem; color: #aaa;">
         Keyboard: Use arrow keys to control
     </div>
-
+    
     <script>
         let previewUpdateInterval;
-        let gameState = 'waiting'; // 'waiting', 'playing', 'gameover'
-        let currentDirection = ''; // Track current direction
-        let aiMode = false; // Track AI mode state
+        let gameState = 'waiting';
+        let aiMode = false;
         
         // Create preview grid
         function createPreviewGrid() {
@@ -602,14 +421,45 @@ void setupSnakePattern(AsyncWebServer* server) {
             fetchGameState();
         }
         
-        // Send direction only when it changes
+        // Fetch game state from server
+        function fetchGameState() {
+            fetch('/snakeState')
+                .then(response => response.json())
+                .then(data => {
+                    // Update game state
+                    gameState = data.state;
+                    
+                    // Update score
+                    document.getElementById('scoreValue').textContent = data.score;
+                    
+                    // Update game status text
+                    const statusElement = document.getElementById('gameStatus');
+                    switch (data.state) {
+                        case 'waiting':
+                            statusElement.textContent = 'Press Start to Play';
+                            break;
+                        case 'playing':
+                            statusElement.textContent = 'Game In Progress';
+                            break;
+                        case 'gameover':
+                            statusElement.textContent = 'Game Over! Press Restart';
+                            break;
+                    }
+                    
+                    // Update AI mode if it changed
+                    if (aiMode !== data.aiMode) {
+                        aiMode = data.aiMode;
+                        updateAIButton();
+                    }
+                })
+                .catch(error => console.error('Error fetching game state:', error));
+        }
+        
+        // Send direction immediately without tracking current direction
         function sendDirection(direction) {
-            if (direction !== currentDirection) {
-                currentDirection = direction;
-                fetch(`/snakeControl?dir=${direction}`)
-                    .then(response => response.text())
-                    .catch(error => console.error('Error sending direction:', error));
-            }
+            fetch(`/snakeControl?dir=${direction}`)
+                .then(response => response.text())
+                .catch(error => console.error('Error sending direction:', error));
         }
         
         function startGame() {
@@ -627,7 +477,6 @@ void setupSnakePattern(AsyncWebServer* server) {
                 .then(response => response.text())
                 .then(() => {
                     gameState = 'playing';
-                    currentDirection = '';  // Reset direction
                     document.getElementById('gameStatus').textContent = 'Game In Progress';
                     document.getElementById('scoreValue').textContent = '0';
                 })
@@ -637,7 +486,6 @@ void setupSnakePattern(AsyncWebServer* server) {
         // Toggle AI mode
         function toggleAIMode() {
             aiMode = !aiMode;
-            currentDirection = '';  // Reset direction when toggling AI
             updateAIButton();
             
             fetch(`/snakeControl?action=${aiMode ? 'aiOn' : 'aiOff'}`)
@@ -651,8 +499,8 @@ void setupSnakePattern(AsyncWebServer* server) {
             if (aiMode) {
                 aiButton.textContent = 'Disable AI';
                 aiButton.classList.add('active');
-                // When AI mode is enabled, disable manual controls
-                document.querySelectorAll('.d-btn').forEach(btn => {
+                // When AI mode is enabled, disable manual controls except AI and Restart buttons
+                document.querySelectorAll('.d-btn:not(#btnAI):not(#btnRestart)').forEach(btn => {
                     btn.disabled = true;
                     btn.style.opacity = 0.5;
                 });
@@ -732,18 +580,11 @@ void setupSnakePattern(AsyncWebServer* server) {
             }
         });
         
-        // Initialize
+        // Initialize with faster preview updates
         document.addEventListener('DOMContentLoaded', function() {
             createPreviewGrid();
             updatePreview();
-            previewUpdateInterval = setInterval(updatePreview, 100);
-        });
-        
-        // Clean up
-        window.addEventListener('unload', function() {
-            if (previewUpdateInterval) {
-                clearInterval(previewUpdateInterval);
-            }
+            previewUpdateInterval = setInterval(updatePreview, 50);
         });
     </script>
 </body>

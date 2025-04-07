@@ -396,123 +396,14 @@ void setupTypePattern(AsyncWebServer* server) {
 <head>
     <title>PixelBoard Text Display</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #282c34;
-            color: #ffffff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .controls {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-        .input-group {
-            width: 100%;
-            max-width: 400px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 8px 15px;
-            background: #3b3f47;
-            border: 1px solid #61dafb;
-            border-radius: 6px;
-            color: white;
-            font-size: 16px;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #61dafb;
-            box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
-        }
-        .color-selection, .font-selection {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .color-btn, .font-btn {
-            background-color: #444;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
-        }
-        .color-btn:hover, .font-btn:hover {
-            background-color: #555;
-        }
-        .color-btn:active, .font-btn:active {
-            background-color: #555;
-            box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
-            transform: translateY(2px);
-        }
-        .color-btn.active, .font-btn.active {
-            background-color: #61dafb;
-            color: #282c34;
-        }
-        .preview-container {
-            margin: 10px;
-            display: flex;
-            justify-content: center;
-            flex: 1;
-        }
-        .preview-grid {
-            display: grid;
-            grid-template-columns: repeat(16, 1fr);
-            gap: 2px;
-            padding: 8px;
-            background: #3b3f47;
-            border-radius: 10px;
-            aspect-ratio: 1;
-            width: min(90%, 400px);
-            max-height: 80vh;
-        }
-        .preview-pixel {
-            aspect-ratio: 1;
-            background: #282c34;
-            border-radius: 2px;
-            transition: background-color 0.3s ease;
-        }
-        .color-section {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-        }
-        .color-section-label {
-            font-size: 14px;
-            color: #aaa;
-        }
-        
-        @media screen and (max-width: 600px) {
-            .controls {
-                padding: 10px;
-            }
-            .color-btn, .font-btn {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="preview-container">
         <div class="preview-grid" id="previewGrid"></div>
     </div>
     
-    <div class="controls">
+    <div class="controls" style="display:block;">
         <div class="input-group">
             <input type="text" id="text-input" placeholder="Enter text to display" value="PixelBoard">
         </div>

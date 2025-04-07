@@ -324,14 +324,14 @@ float evaluatePosition() {
     int maxHeight = 0;
     int totalHeight = 0;
     int blockedHoles = 0;
-    int adjacentHoles = 0;
-    float maxHeightDiff = 0.0f;  // Changed to float
+    int wellDepths[GRID_WIDTH] = {0};
+    float bumpiness = 0;
     
-    // Calculate column heights and holes
+    // Calculate column heights, holes, and wells
     for (int x = 0; x < GRID_WIDTH; x++) {
         bool foundBlock = false;
-        bool hasHoleBelow = false;
         int columnHoles = 0;
+        int wellDepth = 0;
         
         for (int y = 0; y < GRID_HEIGHT; y++) {
             bool isFilled = gameBoard[y][x] || 
@@ -350,35 +350,23 @@ float evaluatePosition() {
             if (foundBlock && !isFilled) {
                 holes++;
                 columnHoles++;
-                hasHoleBelow = true;
-            } else if (hasHoleBelow && isFilled) {
-                blockedHoles++;
+                wellDepth++;
+            } else if (isFilled) {
+                if (wellDepth > 0) {
+                    wellDepths[x] = std::max(wellDepths[x], wellDepth);
+                }
+                wellDepth = 0;
             }
         }
         
-        // Penalize columns with multiple holes more severely
         if (columnHoles > 1) {
-            holes += columnHoles * 3;  // Increased penalty for multiple holes
+            holes += columnHoles * 4;
         }
         
-        // Check for adjacent holes and height differences
         if (x > 0) {
-            float diff = std::abs(static_cast<float>(heights[x] - heights[x - 1]));
-            maxHeightDiff = std::max(maxHeightDiff, diff);
-            
-            if (columnHoles > 0 && heights[x-1] - heights[x] > 2) {
-                adjacentHoles++;
-            }
+            float diff = std::abs(heights[x] - heights[x-1]);
+            bumpiness += diff;
         }
-    }
-    
-    // Calculate surface smoothness and variance
-    float avgHeight = static_cast<float>(totalHeight) / GRID_WIDTH;
-    float heightVariance = 0;
-    
-    for (int x = 0; x < GRID_WIDTH; x++) {
-        float diff = static_cast<float>(heights[x]) - avgHeight;
-        heightVariance += diff * diff;
     }
     
     // Count complete lines
@@ -397,56 +385,69 @@ float evaluatePosition() {
         if (complete) completeLines++;
     }
     
-    // Piece-specific strategies with adjusted weights
+    float aggregateHeight = 0;
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        aggregateHeight += heights[x];
+    }
+    
+    float wellPenalty = 0;
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        if (wellDepths[x] > 2) {
+            wellPenalty += wellDepths[x] * wellDepths[x];
+        }
+    }
+    
     float pieceBonus = 0;
     switch (currentType) {
-        case 0:  // I-piece
-            if (currentRotation == ROT_0) {
-                if (completeLines == 4) pieceBonus += 1000.0f;  // Increased Tetris bonus
-                else if (completeLines > 0) pieceBonus += 100.0f;  // Increased line clear bonus
+        case 0:
+            if (completeLines == 4) {
+                pieceBonus += 2000.0f;
             }
-            // Bonus for keeping I-piece positions clear
-            if (maxHeight < GRID_HEIGHT - 4) pieceBonus += 50.0f;
+            if (heights[GRID_WIDTH-1] <= maxHeight - 4) {
+                pieceBonus += 100.0f;
+            }
             break;
             
-        case 1:  // O-piece
-            // Encourage O-pieces to be placed low and fill holes
-            if (currentY > GRID_HEIGHT - 4) pieceBonus += 50.0f;
-            if (holes > 0) pieceBonus += 30.0f;
+        case 1:
+            if (currentY > GRID_HEIGHT - 4) {
+                pieceBonus += 50.0f;
+            }
             break;
             
-        case 2:  // T-piece
-            // Better T-spin setup detection
-            if (maxHeightDiff <= 2 && holes == 0) pieceBonus += 60.0f;
+        case 2:
+            if (maxHeight < GRID_HEIGHT - 3 && bumpiness < 3) {
+                pieceBonus += 80.0f;
+            }
             break;
             
-        default:  // Other pieces (L, J, S, Z)
-            // Encourage filling holes and maintaining low height
-            if (maxHeightDiff <= 1) pieceBonus += 40.0f;
-            if (holes == 0) pieceBonus += 30.0f;
+        default:
+            if (bumpiness < 2 && holes == 0) {
+                pieceBonus += 60.0f;
+            }
     }
     
-    // Calculate final score with adjusted weights
-    score = completeLines * 800.0f +                // Increased line clear reward
-            pieceBonus +                            // Piece-specific bonuses
-            -holes * 70.0f +                        // Increased hole penalty
-            -blockedHoles * 35.0f +                 // Increased blocked hole penalty
-            -adjacentHoles * 50.0f +                // Increased adjacent holes penalty
-            -maxHeight * 15.0f +                    // Increased height penalty
-            -heightVariance * 3.0f +                // Increased variance penalty
-            -maxHeightDiff * 20.0f +                // Increased height difference penalty
-            -(float)(totalHeight * totalHeight) * 0.15f;  // Increased quadratic height penalty
+    score = 
+        completeLines * 1000.0f +
+        pieceBonus +
+        -holes * 100.0f +
+        -blockedHoles * 50.0f +
+        -bumpiness * 40.0f +
+        -aggregateHeight * 20.0f +
+        -maxHeight * 30.0f +
+        -wellPenalty * 40.0f;
     
-    // Additional strategic bonuses
-    if (completeLines >= 4) {
-        score += 1500.0f;  // Massive bonus for Tetris
-    } else if (completeLines >= 2) {
-        score += 300.0f;   // Better bonus for multiple lines
+    if (bumpiness < 3) {
+        score += 100.0f;
     }
     
-    // Bonus for keeping the right side clear for I-pieces
-    if (currentType == 0 && heights[GRID_WIDTH-1] <= avgHeight - 3) {
-        score += 50.0f;
+    if (maxHeight < GRID_HEIGHT/2) {
+        score += 200.0f;
+    }
+    
+    for (int x = 1; x < GRID_WIDTH-1; x++) {
+        if (heights[x] > heights[x-1] + 2 && heights[x] > heights[x+1] + 2) {
+            score -= 150.0f;
+        }
     }
     
     return score;
@@ -455,22 +456,18 @@ float evaluatePosition() {
 TetrisDirection getTetrisAIMove() {
     float bestScore = -999999;
     TetrisDirection bestMove = T_DOWN;
-    bool collision;
     
     // Look ahead simulation
     for (int rotations = 0; rotations < 4; rotations++) {
         backupPosition();
         
-        // Apply rotations
         for (int i = 0; i < rotations; i++) {
             rotateTetromino();
         }
         
-        // Try each horizontal position
         for (int moveX = -TETROMINO_SIZE; moveX <= GRID_WIDTH; moveX++) {
             backupPosition();
             
-            // Move to target X position
             while (currentX < moveX) {
                 currentX++;
                 if (checkCollision()) {
@@ -487,20 +484,19 @@ TetrisDirection getTetrisAIMove() {
             }
             
             if (!checkCollision()) {
-                // Drop piece to final position
                 while (!checkCollision()) {
                     currentY++;
                 }
-                currentY--;  // Move back up one step
+                currentY--;
                 
                 float score = evaluatePosition();
                 
-                // Prefer moves closer to the center, but with less weight
-                float centerPreference = -abs(currentX - GRID_WIDTH/2) * 0.2f;
+                float centerPreference = -abs(currentX - GRID_WIDTH/2) * 0.1f;
                 score += centerPreference;
                 
-                // Prefer moves that don't create overhangs
                 bool hasOverhang = false;
+                bool createsGap = false;
+                
                 for (int x = 0; x < TETROMINO_SIZE; x++) {
                     bool hasBlock = false;
                     for (int y = TETROMINO_SIZE-1; y >= 0; y--) {
@@ -512,12 +508,24 @@ TetrisDirection getTetrisAIMove() {
                         }
                     }
                 }
-                if (!hasOverhang) score += 20.0f;
+                
+                for (int x = 0; x < TETROMINO_SIZE; x++) {
+                    for (int y = 0; y < TETROMINO_SIZE; y++) {
+                        if (currentPiece[y][x] && currentY + y < GRID_HEIGHT - 1) {
+                            if (!gameBoard[currentY + y + 1][currentX + x]) {
+                                createsGap = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (createsGap) break;
+                }
+                
+                if (hasOverhang) score -= 50.0f;
+                if (createsGap) score -= 100.0f;
                 
                 if (score > bestScore) {
                     bestScore = score;
-                    
-                    // Determine the first move needed
                     if (rotations > 0) {
                         bestMove = T_ROTATE;
                     } else if (moveX < backupX) {
@@ -661,143 +669,7 @@ void setupTetrisPattern(AsyncWebServer* server) {
 <head>
     <title>PixelBoard Tetris</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #282c34;
-            color: #ffffff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .header {
-            background: #3b3f47;
-            padding: 10px 15px;
-            border-bottom: 1px solid #61dafb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        h1 {
-            margin: 0;
-            font-size: 1.4rem;
-        }
-        .score {
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-        .preview-container {
-            margin: 10px;
-            display: flex;
-            justify-content: center;
-            flex: 1;
-        }
-        .preview-grid {
-            display: grid;
-            grid-template-columns: repeat(16, 1fr);
-            gap: 2px;
-            padding: 8px;
-            background: #3b3f47;
-            border-radius: 10px;
-            aspect-ratio: 1;
-            width: min(90%, 400px);
-            max-height: 80vh;
-        }
-        .preview-pixel {
-            aspect-ratio: 1;
-            background: #282c34;
-            border-radius: 2px;
-            transition: background-color 0.3s ease;
-        }
-        .controls {
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-        }
-        .d-pad {
-            display: grid;
-            grid-template-columns: repeat(3, 50px);
-            grid-template-rows: repeat(3, 50px);
-            gap: 5px;
-        }
-        .d-btn {
-            background-color: #444;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            transition: all 0.2s;
-            box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        }
-        .d-btn:active {
-            background-color: #555;
-            box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
-            transform: translateY(2px);
-        }
-        .d-btn.up { grid-column: 2; grid-row: 1; }
-        .d-btn.left { grid-column: 1; grid-row: 2; }
-        .d-btn.right { grid-column: 3; grid-row: 2; }
-        .d-btn.down { grid-column: 2; grid-row: 3; }
-        .center {
-            grid-column: 2;
-            grid-row: 2;
-            background-color: #333;
-            border-radius: 6px;
-        }
-        .key-icon {
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 18px;
-            padding: 4px 8px;
-            background-color: #222;
-            border-radius: 4px;
-            border: 1px solid #555;
-            box-shadow: inset 0 0 3px rgba(0,0,0,0.5);
-        }
-        
-        @media screen and (max-width: 600px) {
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-                padding: 5px;
-            }
-            .header-left, .header-right {
-                justify-content: center;
-            }
-            h1 {
-                font-size: 1.2rem;
-                text-align: center;
-            }
-            .controls {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div class="header">

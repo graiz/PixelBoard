@@ -43,35 +43,35 @@ void randomPattern(CRGB* leds);
 void sparkler(CRGB* leds);  // New sparkler pattern
 
 // Provide the actual array definition
-Pattern g_patternList[] = {
-    { "Fire",              firefunction },
-    { "The Matrix",        greenBlackLoop },
-    { "Pac Man Ghost",     ghost },
-    { "Qbert",             qbert },
-    { "DVD Bounce",        dvdBounce },
-    { "Ms Pac-Man",        pac },
-    { "Jelly Fish",        water },
-    { "Super Mario",       mario },
-    { "Rainbow Drift",     rainbow },
-    { "Pixel Swaps",       watermatrix },
-    { "Rainbow Glitter",   rainbowWithGlitter },
-    { "Confetti",          confetti },
-    { "Up Down Rainbow",   sinelon },
-    { "Juggle",            juggle },
-    { "Twinkle",           twinkle },
-    { "Sleep Device",      sleepLED },
-    { "Swirl",             swirl },
-    { "Game of Life",      meteorRain },
-    { "Color Wipe",        colorWipe },
-    { "Beach Ball",        beachBall },
-    { "Clock Countdown",   clockCountdown },  // Keep pattern entry
-    { "Draw",              draw },
-    { "Video",             video },
-    { "Type",              type },
-    { "Random",            randomPattern },
-    { "Snake Game",         snake },
-    { "Tetris Game",       tetris },
-    { "Sparkler",          sparkler }  // Replace spirograph with sparkler
+ Pattern g_patternList[] = {
+    { "Fire",              firefunction,      "🔥" },
+    { "The Matrix",        greenBlackLoop,    "🧮" },
+    { "Pac Man Ghost",     ghost,             "👻" },
+    { "Qbert",             qbert,             "🎲" },
+    { "DVD Bounce",        dvdBounce,         "📀" },
+    { "Ms Pac-Man",        pac,               "🎮" },
+    { "Jelly Fish",        water,             "🪼" },
+    { "Super Mario",       mario,             "🍄" },
+    { "Rainbow Drift",     rainbow,           "🌈" },
+    { "Pixel Swaps",       watermatrix,       "🔀" },
+    { "Rainbow Glitter",   rainbowWithGlitter,"✨" },
+    { "Confetti",          confetti,          "🎊" },
+    { "Up Down Rainbow",   sinelon,           "📶" },
+    { "Juggle",            juggle,            "🤹" },
+    { "Twinkle",           twinkle,           "⭐" },
+    { "Sleep Device",      sleepLED,          "💤" },
+    { "Swirl",             swirl,             "🌀" },
+    { "Game of Life",      meteorRain,        "🦠" },
+    { "Color Wipe",        colorWipe,         "🧹" },
+    { "Beach Ball",        beachBall,         "🏐" },
+    { "Clock Countdown",   clockCountdown,    "⏳" },
+    { "Draw",              draw,              "🖌️" },
+    { "Video",             video,             "🎬" },
+    { "Type",              type,              "⌨️" },
+    { "Random",            randomPattern,     "🎲" },
+    { "Snake Game",        snake,             "🐍" },
+    { "Tetris Game",       tetris,            "🧩" },
+    { "Sparkler",          sparkler,          "💫" }
 };
 
 // And the size of that array
@@ -91,36 +91,41 @@ void nap(int wait){
 }
 
 void sleepLED(CRGB* leds) {
-    // Turn off all LEDs
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
+    static bool initialized = false;
+    static unsigned long lastUpdate = 0;
+    static unsigned long lastCall = 0;
+    const unsigned long UPDATE_INTERVAL = 60000; // Only update every minute
+    const unsigned long TIMEOUT_INTERVAL = 2000; // Reset initialization if not called for 2 seconds
     
-    // Set brightness to minimum
-    FastLED.setBrightness(0);
-    FastLED.show();
+    unsigned long currentMillis = millis();
     
-    // Enter low power mode
-    delay(100); // Short delay to ensure display is off
+    // Check if we haven't been called in a while (meaning we switched patterns)
+    if (currentMillis - lastCall > TIMEOUT_INTERVAL) {
+        initialized = false;
+    }
+    lastCall = currentMillis;
     
-    // Keep WiFi on but in modem sleep mode
-    WiFi.setSleep(true);
+    // Initial setup when entering sleep mode
+    if (!initialized) {
+        fill_solid(leds, NUM_LEDS, CRGB::Black);    
+        FastLED.setBrightness(0);
+        FastLED.show();
+        initialized = true;
+        lastUpdate = currentMillis;
+        return;
+    }
     
-    // Configure light sleep wake-up sources
-    esp_sleep_enable_timer_wakeup(600 * 1000000); // 10 minutes failsafe timer
-    esp_sleep_enable_wifi_wakeup();  // Enable wake on WiFi activity
+    // Only update the display periodically to maintain deep sleep state
+    if (currentMillis - lastUpdate >= UPDATE_INTERVAL) {
+        // Quick check to ensure LEDs are still off
+        // This helps recover from any potential glitches
+        FastLED.setBrightness(0);
+        FastLED.show();
+        lastUpdate = currentMillis;
+    }
     
-    // Disable Bluetooth for power saving
-    btStop();
-    
-    // Enter light sleep (maintains WiFi connection)
-    esp_light_sleep_start();
-    
-    // After wake-up:
-    WiFi.setSleep(false); // Return WiFi to normal mode
-    
-    // Restore normal brightness
-    FastLED.setBrightness(g_Brightness);
-    FastLED.show();
+    // Small delay to reduce CPU usage while still being responsive
+    delay(500);
 }
 
 
@@ -330,29 +335,63 @@ void juggle(CRGB* leds) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-// 1) Swirl - GPT Generated
-//    Creates concentric color "rings" that rotate over time around the center.
+// 1) Swirl - A dynamic spiral pattern with multiple arms
+//    Creates an engaging spiral effect with varying colors and movement
 ///////////////////////////////////////////////////////////////////////////
 void swirl(CRGB* leds) {
   static uint16_t angle = 0;          // Controls rotation over time
-  angle += 2;                         // Increase angle to make swirl move
-
-  const uint8_t centerX = 8;          // For a 16x16 matrix, middle is (8,8)
+  static uint8_t hueOffset = 0;       // Controls color cycling
+  
+  const uint8_t centerX = 8;          // Center X (for 16x16 matrix)
   const uint8_t centerY = 8;
-
-  // Fill the matrix with swirl pattern
-  for(uint8_t y = 0; y < 16; y++) {
-    for(uint8_t x = 0; x < 16; x++) {
-      int16_t dx = x - centerX;
-      int16_t dy = y - centerY;
-      uint16_t dist = sqrt16(dx * dx + dy * dy); // integer-based distance
-      uint8_t hue = (dist * 8 + angle) & 0xFF;   // swirl calculation
-      leds[ XY(x, y) ] = CHSV(hue, 255, 255);
+  const uint8_t numArms = 3;          // Number of spiral arms
+  const float spiralTightness = 0.7;  // Controls how tight the spiral is
+  
+  // Clear the display
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  
+  // Update animation variables
+  angle += 3;                         // Rotation speed
+  hueOffset += 1;                     // Color cycling speed
+  
+  // Draw multiple spiral arms
+  for (uint8_t arm = 0; arm < numArms; arm++) {
+    float armOffset = (360.0 / numArms) * arm;
+    
+    // Draw each spiral arm
+    for (float radius = 0; radius < 12; radius += 0.25) {
+      // Calculate spiral position
+      float spiralAngle = (angle + armOffset + (radius * spiralTightness * 30)) * (PI / 180.0);
+      int x = centerX + (radius * cos(spiralAngle));
+      int y = centerY + (radius * sin(spiralAngle));
+      
+      // Only draw if within bounds
+      if (x >= 0 && x < 16 && y >= 0 && y < 16) {
+        // Calculate color based on radius and arm
+        uint8_t hue = hueOffset + (radius * 12) + (arm * 85);
+        uint8_t sat = 255;
+        uint8_t val = 255 - (radius * 10); // Fade brightness toward the end
+        
+        // Draw the pixel with a slight glow effect
+        leds[XY(x, y)] = CHSV(hue, sat, val);
+        
+        // Add glow effect to neighboring pixels
+        for (int8_t dx = -1; dx <= 1; dx++) {
+          for (int8_t dy = -1; dy <= 1; dy++) {
+            if (dx == 0 && dy == 0) continue;
+            int glowX = x + dx;
+            int glowY = y + dy;
+            if (glowX >= 0 && glowX < 16 && glowY >= 0 && glowY < 16) {
+              leds[XY(glowX, glowY)] += CHSV(hue, sat, val / 4);
+            }
+          }
+        }
+      }
     }
   }
-
+  
   FastLED.show();
-  nap(20); // Adjust delay to control rotation speed
+  nap(20); // Adjust delay to control animation speed
 }
 
 
@@ -453,32 +492,53 @@ void meteorRain(CRGB* leds) {
 
 ///////////////////////////////////////////////////////////////////////////
 // 3) Color Wipe
-//    Lights up pixels one by one, then turns them off, repeatedly.
-//    Randomly picks a new color each cycle.
+//    Creates a continuous diagonal wipe effect that smoothly transitions colors
 ///////////////////////////////////////////////////////////////////////////
 void colorWipe(CRGB* leds) {
-  static uint8_t currentPixel = 0;
-  static CRGB currentColor = CRGB::Red;  // Start color
-
-  // Light up the current pixel
-  leds[currentPixel] = currentColor;
-
-  FastLED.show();
-  nap(30); // Pause between wiping each pixel
-
-  // Move to the next pixel
-  currentPixel++;
-  if(currentPixel >= NUM_LEDS) {
-    // Once we've lit them all, turn everything off again
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
-    nap(300);  // A brief pause with all off
-
-    // Reset to the first pixel
-    currentPixel = 0;
-    // Pick a new random color
-    currentColor = CHSV(random8(), 255, 255);
+  static int16_t wipePos = -16;  // Position of the wipe line
+  static bool rightToLeft = false;  // Direction of the wipe
+  static CRGB currentColor = CHSV(random8(), 255, 255);  // Current color
+  static CRGB nextColor = CHSV(random8(), 255, 255);     // Next color to transition to
+  
+  // Draw diagonal wipe
+  for (uint8_t x = 0; x < 16; x++) {
+    for (uint8_t y = 0; y < 16; y++) {
+      // Calculate position relative to the wipe line
+      int16_t pos = rightToLeft ? (15 - x + y) : (x + y);
+      
+      // Create smooth transition between colors
+      if (pos <= wipePos) {
+        leds[XY(x, y)] = nextColor;
+      } else if (pos <= wipePos + 4) {
+        // Blend between colors in the transition zone using FastLED's blend
+        uint8_t blendAmt = map(pos - wipePos, 0, 4, 255, 0);
+        leds[XY(x, y)] = blend(currentColor, nextColor, blendAmt);
+      }
+    }
   }
+  
+  // Move wipe line
+  wipePos++;
+  
+  // Check if wipe is complete
+  if (wipePos >= 30) {  // 30 gives enough room to complete the diagonal
+    wipePos = -16;  // Reset position
+    rightToLeft = !rightToLeft;  // Change direction
+    currentColor = nextColor;  // Current color becomes the one we just used
+    nextColor = CHSV(random8(), 255, 255);  // Pick new color for next wipe
+  }
+  
+  FastLED.show();
+  nap(30);  // Control wipe speed
+}
+
+// Helper function to blend between two colors
+CRGB blend_CRGB(CRGB color1, CRGB color2, uint8_t blend) {
+  CRGB result;
+  result.r = map(blend, 0, 255, color2.r, color1.r);
+  result.g = map(blend, 0, 255, color2.g, color1.g);
+  result.b = map(blend, 0, 255, color2.b, color1.b);
+  return result;
 }
 
 // Random pattern that changes every 1 minute
