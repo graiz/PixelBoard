@@ -43,7 +43,7 @@ void randomPattern(CRGB* leds);
 void sparkler(CRGB* leds);  // New sparkler pattern
 
 // Provide the actual array definition
- Pattern g_patternList[] = {
+Pattern g_patternList[] = {
     { "Fire",              firefunction,      "🔥" },
     { "The Matrix",        greenBlackLoop,    "🧮" },
     { "Pac Man Ghost",     ghost,             "👻" },

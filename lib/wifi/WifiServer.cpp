@@ -282,6 +282,12 @@ static void setupHomePage() {
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
       </head>
       <body>
+        <div class="mobile-tabs">
+          <div class="tab-buttons">
+            <button class="tab-button active" data-tab="pattern">Pattern</button>
+            <button class="tab-button" data-tab="preview">Preview</button>
+          </div>
+        </div>
         <div class="page-layout">
           <div class="controls-panel">
             <div class="resize-handle"></div>
@@ -381,6 +387,31 @@ static void setupHomePage() {
 
     html += R"rawliteral(; // Use server-side interval
           let isUpdating = false; // Flag to prevent concurrent requests
+          let currentTab = 'pattern';
+
+          // Mobile tab handling
+          document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+              // Update active tab button
+              document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+              button.classList.add('active');
+              
+              // Update current tab
+              currentTab = button.dataset.tab;
+              
+              // Show/hide panels based on selected tab
+              const controlsPanel = document.querySelector('.controls-panel');
+              const previewPanel = document.querySelector('.preview-panel');
+              
+              if (currentTab === 'pattern') {
+                controlsPanel.style.display = 'flex';
+                previewPanel.style.display = 'none';
+              } else {
+                controlsPanel.style.display = 'none';
+                previewPanel.style.display = 'flex';
+              }
+            });
+          });
 
           function formatTime(date) {
             return date.toLocaleTimeString();
@@ -753,7 +784,7 @@ static void setupPixelStatusHandler() {
       }
     }
     
-    AsyncWebServerResponse *response_obj = request->beginResponse_P(200, "application/octet-stream", response, 768);
+    AsyncWebServerResponse *response_obj = request->beginResponse(200, "application/octet-stream", response, 768);
     response_obj->addHeader("Cache-Control", "no-store");
     request->send(response_obj);
   });
@@ -785,502 +816,8 @@ static void setupPreviewIntervalHandler() {
 // Handler for /style.css - returns shared CSS styles
 // -------------------------------------------------------------------
 static void setupStyleHandler() {
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String css = R"rawliteral(
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-        background-color: #282c34;
-        color: #ffffff;
-        min-height: 100vh;
-      }
-      .page-layout {
-        display: flex;
-        min-height: 100vh;
-        position: relative;
-      }
-      .controls-panel {
-        width: 40%;
-        min-width: 150px;
-        padding: 20px;
-        background: #3b3f47;
-        border-right: 1px solid #61dafb;
-        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
-        position: relative;
-        user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-      }
-      .resize-handle {
-        position: absolute;
-        right: -5px;
-        top: 0;
-        bottom: 0;
-        width: 10px;
-        cursor: col-resize;
-        background: transparent;
-        z-index: 10;
-      }
-      .resize-handle:hover {
-        background: rgba(97, 218, 251, 0.2);
-      }
-      .resize-handle.active {
-        background: rgba(97, 218, 251, 0.4);
-      }
-      .main-controls {
-        flex: 1;
-      }
-      .preview-panel {
-        flex: 1;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-width: 0;
-      }
-      .preview-panel iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
-        background: #3b3f47;
-        border-radius: 10px;
-      }
-      .preview-container {
-        width: min(80%, 600px);
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-      }
-      .preview-grid {
-        display: grid;
-        grid-template-columns: repeat(16, 1fr);
-        gap: 2px;
-        padding: 20px;
-        background: #3b3f47;
-        border-radius: 10px;
-        width: min(80vh, min(80%, 600px));
-        aspect-ratio: 1;
-        margin: auto;
-      }
-      .preview-pixel {
-        aspect-ratio: 1;
-        background: #000;
-        border-radius: 2px;
-        transition: background-color 0.3s ease;
-      }
-      h1 {
-        margin-bottom: 20px;
-        font-size: 24px;
-        color: #61dafb;
-        text-align: center;
-      }
-      label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      select {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 15px;
-        border: 1px solid #61dafb;
-        border-radius: 4px;
-        background: #282c34;
-        color: white;
-        font-size: 16px;
-        line-height: 1.5;
-      }
-      select option {
-        padding: 8px;
-        font-size: 16px;
-        line-height: 1.5;
-      }
-      .slider-container {
-        margin-bottom: 15px;
-      }
-      .slider {
-        -webkit-appearance: none;
-        width: 100%;
-        height: 10px;
-        border-radius: 5px;
-        background: #2a5460;
-        outline: none;
-        margin: 10px 0;
-      }
-      .slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #61dafb;
-        cursor: pointer;
-      }
-      .slider::-moz-range-thumb {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #61dafb;
-        cursor: pointer;
-      }
-      .value-display {
-        text-align: right;
-        color: #61dafb;
-        font-size: 14px;
-        margin-top: 5px;
-      }
-      .preview-controls {
-        margin-top: auto;
-        padding: 15px;
-        background: #282c34;
-        border-radius: 8px;
-        border: 1px solid #61dafb;
-      }
-      .preview-controls h2 {
-        font-size: 18px;
-        color: #61dafb;
-        margin: 0 0 15px 0;
-      }
-      .settings-button {
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        background: #282c34;
-        color: #282c34;
-        border: none;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        font-size: 20px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.2s;
-      }
-      .settings-button:hover {
-        transform: rotate(45deg);
-      }
-      .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 1000;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal.show {
-        display: flex;
-      }
-      .modal-content {
-        background: #3b3f47;
-        padding: 20px;
-        border-radius: 10px;
-        width: 90%;
-        max-width: 500px;
-        position: relative;
-        border: 1px solid #61dafb;
-      }
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-      }
-      .modal-header h2 {
-        margin: 0;
-        color: #61dafb;
-      }
-      .close-modal {
-        background: none;
-        border: none;
-        color: #61dafb;
-        font-size: 24px;
-        cursor: pointer;
-        padding: 0;
-      }
-      .close-modal:hover {
-        color: #fff;
-      }
-      .modal-section {
-        background: #282c34;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-      }
-      .modal-section h3 {
-        color: #61dafb;
-        margin: 0 0 10px 0;
-        font-size: 16px;
-      }
-      .button-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-      }
-      .control-button {
-        flex: 1;
-        padding: 8px;
-        background: #61dafb;
-        color: #282c34;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: background-color 0.2s;
-      }
-      .control-button:hover {
-        background: #4fa8d3;
-      }
-      .preview-status {
-        font-size: 14px;
-        color: #bbb;
-        margin-top: 15px;
-      }
-      .preview-status span {
-        color: #61dafb;
-      }
-      .value-display {
-        font-size: 12px;
-        color: #bbb;
-        margin-top: 5px;
-        width: 100%;
-        overflow: hidden;
-      }
-      .pattern-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 10px;
-        margin-bottom: 20px;
-        overflow-y: auto;
-        padding: 10px;
-        background: #282c34;
-        border-radius: 8px;
-      }
-      .pattern-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 10px;
-        background: #3b3f47;
-        border: 1px solid #41506c;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-align: center;
-      }
-      .pattern-item:hover {
-        background: #4a4f59;
-        transform: translateY(-2px);
-      }
-      .pattern-item.selected {
-        background: #61dafb;
-        color: #282c34;
-      }
-      .pattern-icon {
-        font-size: 24px;
-        margin-bottom: 5px;
-      }
-      .pattern-name {
-        font-size: 12px;
-        word-wrap: break-word;
-        max-width: 100%;
-      }
-
-      /* Tetris-specific styles */
-      .header {
-        background: #3b3f47;
-        padding: 10px 15px;
-        border-bottom: 1px solid #61dafb;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-      }
-      .header-right {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .level {
-        font-size: 1.1rem;
-        font-weight: bold;
-      }
-      .d-pad {
-        display: grid;
-        grid-template-columns: repeat(3, 50px);
-        grid-template-rows: repeat(3, 50px);
-        gap: 5px;
-        margin: 10px 0;
-      }
-      .d-btn {
-        background-color: #444;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-size: 20px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        user-select: none;
-        -webkit-user-select: none;
-        transition: all 0.2s;
-        box-shadow: 0 3px 0 #333, 0 4px 5px rgba(0,0,0,0.3);
-        text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-      }
-      .d-btn:active {
-        background-color: #555;
-        box-shadow: 0 1px 0 #333, 0 2px 3px rgba(0,0,0,0.3);
-        transform: translateY(2px);
-      }
-      .d-btn.up { grid-column: 2; grid-row: 1; }
-      .d-btn.left { grid-column: 1; grid-row: 2; }
-      .d-btn.right { grid-column: 3; grid-row: 2; }
-      .d-btn.down { grid-column: 2; grid-row: 3; }
-      .center {
-        grid-column: 2;
-        grid-row: 2;
-        background-color: #333;
-        border-radius: 6px;
-      }
-      .key-icon {
-        font-family: monospace;
-        font-weight: bold;
-        font-size: 18px;
-        padding: 4px 8px;
-        background-color: #222;
-        border-radius: 4px;
-        border: 1px solid #555;
-        box-shadow: inset 0 0 3px rgba(0,0,0,0.5);
-      }
-      
-      @media screen and (max-width: 600px) {
-        .header {
-          flex-direction: column;
-          align-items: stretch;
-          padding: 5px;
-        }
-        .header-left, .header-right {
-          justify-content: center;
-        }
-        h1 {
-          font-size: 1.2rem;
-          text-align: center;
-        }
-        .controls {
-          flex-direction: column;
-          gap: 10px;
-        }
-      }
-
-      /* Type pattern specific styles */
-      .preview-container {
-        width: min(80%, 600px);
-        margin: 0 auto;
-      }
-      .controls {
-        display: none;
-        width: min(80%, 600px);
-        margin: 20px auto;
-        padding: 20px;
-        background: #3b3f47;
-        border-radius: 10px;
-        border: 1px solid #61dafb;
-      }
-      .input-group {
-        margin-bottom: 20px;
-      }
-      .input-group input[type="text"] {
-        width: calc(100% - 40px);
-        margin: 0 20px;
-        padding: 10px;
-        border: 1px solid #61dafb;
-        border-radius: 4px;
-        background: #282c34;
-        color: #ffffff;
-        font-size: 16px;
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-      }
-      .input-group input[type="text"]:focus {
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
-      }
-      .color-section {
-        margin-bottom: 20px;
-      }
-      .color-section-label {
-        font-size: 14px;
-        color: #61dafb;
-        margin-bottom: 10px;
-      }
-      .color-selection {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .color-btn {
-        width: 12.6%;
-        height: 40px;
-        border: 2px solid transparent;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .color-btn:hover {
-        transform: scale(1.1);
-      }
-      .color-btn.active {
-        border-color: #61dafb;
-        transform: scale(1.1);
-      }
-      .font-selection {
-        display: flex;
-        gap: 10px;
-      }
-      .font-btn {
-        flex: 1;
-        padding: 10px;
-        background: #282c34;
-        color: #61dafb;
-        border: 1px solid #61dafb;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .font-btn:hover {
-        background: rgba(97, 218, 251, 0.1);
-      }
-      .font-btn.active {
-        background: #61dafb;
-        color: #282c34;
-      }
-    )rawliteral";
-
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/css", css);
-    response->addHeader("Cache-Control", "public, max-age=31536000");
-    request->send(response);
-  });
+  server.serveStatic("/style.css", SPIFFS, "/style.css")
+        .setCacheControl("public, max-age=31536000");
 }
 
 // -------------------------------------------------------------------
@@ -1363,7 +900,7 @@ static void setupFaviconHandler() {
       }
     }
     
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "image/x-icon", icoFile, sizeof(icoFile));
+    AsyncWebServerResponse *response = request->beginResponse(200, "image/x-icon", icoFile, sizeof(icoFile));
     response->addHeader("Cache-Control", "no-cache");
     request->send(response);
   });
@@ -1380,22 +917,14 @@ static void startServer() {
   setupPixelStatusHandler();
   setupPreviewIntervalHandler();
   setupStyleHandler();
-  setupFaviconHandler();  // Add favicon handler
+  setupFaviconHandler();
   
   // Set up API endpoints for each pattern with web UI
   setupDrawPattern(&server);
-  
-  setupVideoPlayer(&server);  // Uncommented and renamed
-  
+  setupVideoPlayer(&server);
   setupTypePattern(&server);
-  
-  // Setup snake pattern
   setupSnakePattern(&server);
-  
-  // Setup Tetris pattern
   setupTetrisPattern(&server);
-
-  // Setup Clock pattern
   setupClockPattern(&server);
   
   // Serve the libgif.js file from SPIFFS
@@ -1421,12 +950,12 @@ void wifiServerSetup() {
     setupPatternHandler();
     setupBrightnessHandler();
     setupSpeedHandler();
-    setupVideoPlayer(&server);  // Uncommented and renamed
+    setupVideoPlayer(&server);
     setupDrawPattern(&server);
     setupTypePattern(&server);
     setupSnakePattern(&server);
-    setupTetrisPattern(&server);  // Add Tetris setup
-    setupClockPattern(&server);   // Add Clock setup
+    setupTetrisPattern(&server);
+    setupClockPattern(&server);
     startServer();
 
     // Debug: List files in SPIFFS
