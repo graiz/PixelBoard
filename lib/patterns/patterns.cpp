@@ -1,5 +1,6 @@
 #include <patterns.h>
 #include <led_display.h>
+#include "config.h"  // Include global configuration
 
 // Include complex patterns with UI components
 #include "draw/draw.h"
@@ -8,6 +9,9 @@
 #include "snake/snake.h"
 #include "tetris/tetris.h"
 #include "clock/clock.h"  // Add new clock pattern header
+#if ENABLE_MICROPHONE
+#include "audio/audio.h"  // Add audio pattern header
+#endif
 
 // Include simple patterns directly
 #include "twinkle.cpp"
@@ -44,6 +48,9 @@ void sparkler(CRGB* leds);  // New sparkler pattern
 
 // Provide the actual array definition
 Pattern g_patternList[] = {
+#if ENABLE_MICROPHONE
+    { "Audio Test",        audio,             "🎤" },  // Add audio pattern only if microphone enabled
+#endif
     { "Fire",              firefunction,      "🔥" },
     { "The Matrix",        greenBlackLoop,    "🧮" },
     { "Pac Man Ghost",     ghost,             "👻" },

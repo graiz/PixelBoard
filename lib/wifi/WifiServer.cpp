@@ -20,6 +20,11 @@
 #include "snake/snake.h"       // For setupSnakePattern
 #include "clock/clock.h"       // For setupClockPattern
 #include "SPIFFS.h"
+#include "tetris/tetris.h"    // Add Tetris setup declaration
+
+#if ENABLE_MICROPHONE
+#include "audio/audio.h"      // Add audio pattern header
+#endif
 
 // -------------------------------------------------------------------
 // Global AsyncWebServer for "normal" operation on port 80
@@ -77,6 +82,7 @@ void setupTypePattern(AsyncWebServer* server);
 void setupSnakePattern(AsyncWebServer* server);
 void setupTetrisPattern(AsyncWebServer* server);  // Add Tetris setup declaration
 void setupClockPattern(AsyncWebServer* server);      // Add Clock setup declaration
+void setupAudioPattern(AsyncWebServer* server);  // Add audio pattern setup
 
 // -------------------------------------------------------------------
 // Load Wi-Fi credentials from NVS
@@ -910,6 +916,7 @@ static void setupFaviconHandler() {
 // Start the "normal" server (station mode only)
 // -------------------------------------------------------------------
 static void startServer() {
+  // Setup all the web handlers
   setupHomePage();
   setupPatternHandler();
   setupBrightnessHandler();
@@ -918,18 +925,21 @@ static void startServer() {
   setupPreviewIntervalHandler();
   setupStyleHandler();
   setupFaviconHandler();
-  
-  // Set up API endpoints for each pattern with web UI
+
+  // Setup pattern-specific handlers
   setupDrawPattern(&server);
   setupVideoPlayer(&server);
   setupTypePattern(&server);
   setupSnakePattern(&server);
   setupTetrisPattern(&server);
   setupClockPattern(&server);
-  
-  // Serve the libgif.js file from SPIFFS
+#if ENABLE_MICROPHONE
+  setupAudioPattern(&server);
+#endif
+
+  // Start server
   server.begin();
-  Serial.println("[WiFi] Normal Web server started on port 80");
+  Serial.println("[Server] HTTP server started");
 }
 
 // -------------------------------------------------------------------
@@ -956,6 +966,9 @@ void wifiServerSetup() {
     setupSnakePattern(&server);
     setupTetrisPattern(&server);
     setupClockPattern(&server);
+#if ENABLE_MICROPHONE
+    setupAudioPattern(&server);
+#endif
     startServer();
 
     // Debug: List files in SPIFFS

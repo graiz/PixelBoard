@@ -1,3 +1,4 @@
+#include "config.h"  // Include global configuration
 #include <Arduino.h>
 #include <FastLED.h>
 #include <led_display.h>
@@ -7,6 +8,9 @@
 #include "SPIFFS.h"
 #include <esp_sleep.h>
 #include <WiFi.h>
+
+// Feature flags
+
 
 #define DATA_PIN 26
 #define NUM_LEDS 256

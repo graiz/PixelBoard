@@ -1,5 +1,5 @@
 /* General styles */
-/* V1.2.1 */
+/* V1.2.2 */
 
 
 body {
@@ -533,11 +533,11 @@ body {
     
     .controls-panel {
       width: 100%;
-      display: none;  /* Hidden by default on mobile */
+      display: flex;  /* Show by default on mobile */
     }
     
-    .controls-panel.active {
-      display: flex;  /* Shown when active */
+    .controls-panel:not(.active) {
+      display: none;  /* Only hide when explicitly not active */
     }
     
     .preview-panel {

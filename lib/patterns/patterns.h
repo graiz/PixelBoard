@@ -1,6 +1,8 @@
 #ifndef PATTERNS_H
 #define PATTERNS_H
 
+#include "config.h"  // Include global configuration first
+
 #ifndef NUM_LEDS
 #define NUM_LEDS 256
 #endif 
@@ -15,9 +17,6 @@ extern int g_Brightness;
 
 // Forward declarations of helper functions
 void nap(int wait);
-
-
-
 
 // 1) Define a struct to hold pattern info (name + function pointer).
 struct Pattern {
