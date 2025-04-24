@@ -2,6 +2,15 @@
 
 A versatile ESP32-based 16x16 LED matrix display project featuring multiple interactive patterns, a web interface for control, and real-time pattern preview.
 
+<p align="center">
+  <a href="https://youtu.be/Xm2CHKMk3TU">
+    <img width="500px" src="https://img.youtube.com/vi/Xm2CHKMk3TU/maxresdefault.jpg" alt="How to Create a Discord Bot in Python">
+  </a>
+  <br>
+  <em>How I built the Pixelboard - Click to watch the video overview</em>
+</p>
+
+
 ## Features
 
 - 🌈 20+ Built-in Patterns
